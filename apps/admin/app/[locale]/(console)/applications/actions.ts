@@ -19,7 +19,9 @@ import {
 } from "@ostiary/core/lib/client-registration-policy";
 import { parseLogoUri } from "@ostiary/core/lib/admin/oauth-clients/oauth-client-admin.validation";
 import { currentApiScopes, OIDC_SCOPES } from "@ostiary/core/lib/oauth-scopes";
-import { adminActor } from "@/lib/admin-audit";
+import { z } from "zod";
+
+import { adminAction, input, type AdminActor } from "@/lib/admin-action";
 import type { ActionResult } from "@/lib/action-result";
 
 /*
@@ -37,8 +39,23 @@ type ClientRegistrationInput = {
   maxRegistrationsPerHour: number;
 };
 
+const registrationInput = z.tuple([
+      z.object({
+        // Checked by the action, which says which modes exist.
+        dynamic: z.string().max(64).transform((mode) => mode as DynamicRegistrationMode),
+        metadataDocuments: z.boolean(),
+        scopes: z.array(z.string().max(256)).max(1000),
+        metadataDocumentHosts: input.longText,
+        maxRegistrationsPerHour: z.number(),
+      }),
+    ]);
+
 export async function updateClientRegistration(input: ClientRegistrationInput): Promise<ActionResult> {
-  const { session, audit } = await adminActor();
+  return adminAction(registrationInput, [input], ([input], actor) => updateClientRegistrationRun(input, actor));
+}
+
+async function updateClientRegistrationRun(input: ClientRegistrationInput, actor: AdminActor): Promise<ActionResult> {
+  const { session, audit } = actor;
   const t = await getTranslations("admin.pages.applications.actions.registration");
   if (!(DYNAMIC_REGISTRATION_MODES as readonly string[]).includes(input.dynamic)) {
     return { ok: false, error: t("chooseMode") };
@@ -96,8 +113,14 @@ async function selfRegisteredClient(clientId: string) {
   return { ok: true as const, source, name: row?.name ?? null };
 }
 
+const disabledInput = z.tuple([input.id, z.boolean()]);
+
 export async function setSelfRegisteredClientDisabled(clientId: string, disabled: boolean): Promise<ActionResult> {
-  const { audit } = await adminActor();
+  return adminAction(disabledInput, [clientId, disabled], ([clientId, disabled], actor) => setSelfRegisteredClientDisabledRun(clientId, disabled, actor));
+}
+
+async function setSelfRegisteredClientDisabledRun(clientId: string, disabled: boolean, actor: AdminActor): Promise<ActionResult> {
+  const { audit } = actor;
   const client = await selfRegisteredClient(clientId);
   if (!client.ok) return client;
   // Better Auth refuses disabled clients at authorization, token and introspection.
@@ -113,12 +136,18 @@ export async function setSelfRegisteredClientDisabled(clientId: string, disabled
   return { ok: true };
 }
 
+const iconInput = z.tuple([input.id, input.text]);
+
 /**
  * Sets or clears (empty) the icon of a dynamically registered client. A metadata document
  * client's icon comes from its document, which replaces it on every refresh.
  */
 export async function setSelfRegisteredClientIcon(clientId: string, logoUri: string): Promise<ActionResult> {
-  const { audit } = await adminActor();
+  return adminAction(iconInput, [clientId, logoUri], ([clientId, logoUri], actor) => setSelfRegisteredClientIconRun(clientId, logoUri, actor));
+}
+
+async function setSelfRegisteredClientIconRun(clientId: string, logoUri: string, actor: AdminActor): Promise<ActionResult> {
+  const { audit } = actor;
   const client = await selfRegisteredClient(clientId);
   if (!client.ok) return client;
   const t = await getTranslations("admin.pages.applications.actions.registration");
@@ -137,8 +166,14 @@ export async function setSelfRegisteredClientIcon(clientId: string, logoUri: str
   return { ok: true };
 }
 
+const clientInput = z.tuple([input.id]);
+
 export async function deleteSelfRegisteredClient(clientId: string): Promise<ActionResult> {
-  const { audit } = await adminActor();
+  return adminAction(clientInput, [clientId], ([clientId], actor) => deleteSelfRegisteredClientRun(clientId, actor));
+}
+
+async function deleteSelfRegisteredClientRun(clientId: string, actor: AdminActor): Promise<ActionResult> {
+  const { audit } = actor;
   const client = await selfRegisteredClient(clientId);
   if (!client.ok) return client;
   // Its tokens and consents go with it (foreign keys cascade).
