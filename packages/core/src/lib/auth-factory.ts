@@ -61,6 +61,7 @@ import {
     clientExists,
     currentClientRegistrationSettings,
     registrationCapacityLeft,
+    syncClientRegistration,
 } from "@ostiary/core/lib/client-registration";
 import {
     clientActionAllowed,
@@ -87,7 +88,9 @@ import {
     scimProjection,
 } from "@ostiary/core/lib/scim";
 import { auditRequests } from "@ostiary/core/lib/auth-hooks/audit-hook";
-import { databaseHooks, revokeAppAccess } from "@ostiary/core/lib/auth-hooks/database-hooks";
+import { adminEmailChangeUnverifies } from "@ostiary/core/lib/auth-hooks/admin-email-change";
+import { databaseHooks } from "@ostiary/core/lib/auth-hooks/database-hooks";
+import { revokeUserAccess } from "@ostiary/core/lib/security/user-access-revocation";
 import {
     assertAccountDeletable,
     guardRequests,
@@ -223,6 +226,38 @@ function metadataDocumentRegistration() {
     };
 }
 
+/**
+ * Cold-start discovery sync. The oauth-provider plugin answers the discovery documents
+ * (/.well-known/oauth-authorization-server and /.well-known/openid-configuration) from an
+ * onRequest interceptor that reads provider.options directly, before Better Auth runs the
+ * per-request hooks.before (guardRequests) that otherwise syncs them. On a freshly started
+ * (cold) serverless instance no request has synced those options yet, so discovery would reflect
+ * the construction-time defaults (registration off) rather than the admin console's stored
+ * setting — under-advertising registration_endpoint (and public "none" clients) when an admin
+ * has turned registration on. Plugin onRequest hooks run in the order the plugins are listed, so
+ * placing this immediately before the oauth-provider plugin lets it apply the stored settings to
+ * provider.options first, on the discovery paths only. syncClientRegistration reuses the shared
+ * settings cache (a one-minute TTL per instance, see refreshing-cache.ts), so this is at most one
+ * database read a minute, not one per request. It returns nothing and never short-circuits, so
+ * the oauth-provider plugin still serves the metadata — now from options that match the setting.
+ */
+function clientRegistrationDiscoverySync(
+    provider: ReturnType<typeof oauthProvider>,
+    metadataDocuments: unknown,
+): BetterAuthPlugin {
+    const isDiscoveryPath = (pathname: string) =>
+        pathname.includes("/.well-known/oauth-authorization-server") ||
+        pathname.includes("/.well-known/openid-configuration");
+    return {
+        id: "ostiary-client-registration-discovery-sync",
+        onRequest: async (request) => {
+            if (isDiscoveryPath(new URL(request.url).pathname)) {
+                await syncClientRegistration(provider.options, metadataDocuments);
+            }
+        },
+    };
+}
+
 /** Runs before an identity provider creates, links or signs in an account. */
 const validateUserInfo: NonNullable<NonNullable<BetterAuthOptions["user"]>["validateUserInfo"]> = async (
     { user, source },
@@ -285,10 +320,19 @@ export function createAuth({ baseURL, trustedOrigins, cookieDomain }: AuthFactor
     const provider = oauthProvider({
         loginPage: "/login",
         consentPage: "/consent",
-        // Self-registration (Dynamic Client Registration, metadata documents) is off here and
+        // Self-registration (Dynamic Client Registration / MCP, metadata documents) is off here and
         // set from the admin console's settings before each request, see syncClientRegistration.
+        // The discovery documents are served (from these options) before that first per-request
+        // sync, so on a cold instance clientRegistrationDiscoverySync syncs them on the discovery
+        // paths too, keeping discovery aligned with the admin console's stored setting.
         allowDynamicClientRegistration: false,
         allowUnauthenticatedClientRegistration: false,
+        // Safe defaults until the first per-request sync: PKCE always required for self-registered
+        // clients, and they may request the OIDC scopes only by default. syncClientRegistration
+        // then narrows both lists to the admin console's selection.
+        clientRegistrationRequirePKCE: true,
+        clientRegistrationDefaultScopes: [...OIDC_SCOPES],
+        clientRegistrationAllowedScopes: [...OIDC_SCOPES],
         // Only for clients that ask with prompt=select_account (e.g. a native app signing in
         // through the system browser, whose session may belong to someone else).
         selectAccount: { page: "/select-account", shouldRedirect: () => false },
@@ -431,7 +475,7 @@ export function createAuth({ baseURL, trustedOrigins, cookieDomain }: AuthFactor
                 sendDeleteAccountVerification: async ({ user, token }, request) => {
                     const locale = emailLocale(request?.headers);
                     const url = `${baseURL}/${locale}/delete-account?token=${encodeURIComponent(token)}`;
-                    await queueAccountDeletionEmail({ to: user.email, url, locale });
+                    queueAccountDeletionEmail({ to: user.email, url, locale });
                 },
                 beforeDelete: async (user) => {
                     await assertAccountDeletable(user.id);
@@ -469,7 +513,7 @@ export function createAuth({ baseURL, trustedOrigins, cookieDomain }: AuthFactor
             revokeSessionsOnPasswordReset: true,
             // Whoever had the old password may also hold apps' refresh tokens: revoke those too.
             onPasswordReset: async ({ user }, request) => {
-                await revokeAppAccess(user, "password_reset", null, request ? clientIp(request.headers) : null);
+                await revokeUserAccess(user, "password_reset", null, request ? clientIp(request.headers) : null);
             },
             sendResetPassword: async ({ user, url }) => {
                 queuePasswordResetEmail({ to: user.email, url });
@@ -506,6 +550,7 @@ export function createAuth({ baseURL, trustedOrigins, cookieDomain }: AuthFactor
             emailCodeTwoFactor(twoFactorPlugin),
             externalSignInTwoFactor(twoFactorPlugin, baseURL),
             passwordSignInEvents,
+            adminEmailChangeUnverifies,
             // "Email me a sign-in code": a 6-digit code, typed on the sign-in page that asked for
             // it, so an OAuth sign-in carries on in that tab even when the email is read on a phone.
             emailOTP({
@@ -525,9 +570,7 @@ export function createAuth({ baseURL, trustedOrigins, cookieDomain }: AuthFactor
                 sendVerificationOTP: async ({ email, otp, type }, ctx) => {
                     if (type !== "sign-in") return;
                     const locale = emailLocale(ctx?.headers ?? ctx?.request?.headers);
-                    void queueSignInCodeEmail({ to: email, code: otp, locale }).catch((error: unknown) => {
-                        console.error("[email] sign-in code error:", error);
-                    });
+                    queueSignInCodeEmail({ to: email, code: otp, locale });
                 },
             }),
             // Optional: off unless CAPTCHA_PROVIDER, CAPTCHA_SITE_KEY and CAPTCHA_SECRET_KEY are set.
@@ -563,6 +606,10 @@ export function createAuth({ baseURL, trustedOrigins, cookieDomain }: AuthFactor
                     });
                 },
             }),
+            // Keeps the discovery documents (served from provider.options before the per-request
+            // sync hook runs) aligned with the admin console's stored setting on a cold instance.
+            // Must be listed before the oauth-provider plugin: onRequest hooks run in plugin order.
+            clientRegistrationDiscoverySync(provider, metadataDocuments),
             provider,
             // Self-registered clients stay within the self-registration policy; device sign-in
             // is for admin-registered clients only.

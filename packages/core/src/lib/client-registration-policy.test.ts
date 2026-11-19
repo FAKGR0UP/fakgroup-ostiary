@@ -13,6 +13,7 @@ import {
   registrationSource,
   requestClientIds,
   selfRegisteredUpdateError,
+  unauthenticatedRegistrationError,
   type RegistrationProviderOptions,
 } from "@ostiary/core/lib/client-registration-policy";
 
@@ -37,7 +38,14 @@ describe("parseClientRegistrationSettings", () => {
       scopes: ["openid", "orders:read"],
       metadataDocumentHosts: ["claude.ai", "vscode.dev"],
       maxRegistrationsPerHour: DEFAULT_CLIENT_REGISTRATION_SETTINGS.maxRegistrationsPerHour,
+      reuseIdenticalPublicClients: true,
     });
+  });
+
+  it("reuses identical public clients unless turned off", () => {
+    expect(DEFAULT_CLIENT_REGISTRATION_SETTINGS.reuseIdenticalPublicClients).toBe(true);
+    expect(parseClientRegistrationSettings({ reuseIdenticalPublicClients: "no" }).reuseIdenticalPublicClients).toBe(true);
+    expect(parseClientRegistrationSettings({ reuseIdenticalPublicClients: false }).reuseIdenticalPublicClients).toBe(false);
   });
 
   it("keeps valid values", () => {
@@ -47,6 +55,7 @@ describe("parseClientRegistrationSettings", () => {
       scopes: ["openid", "email"],
       metadataDocumentHosts: [],
       maxRegistrationsPerHour: 0,
+      reuseIdenticalPublicClients: false,
     };
     expect(parseClientRegistrationSettings(value)).toEqual(value);
   });
@@ -132,6 +141,27 @@ describe("registrationRequestError", () => {
     expect(registrationRequestError({ grant_types: ["client_credentials"] })).toMatch(/client_credentials/);
     expect(registrationRequestError({ grant_types: ["authorization_code", "urn:x"] })).toMatch(/urn:x/);
     expect(registrationRequestError({ grant_types: "authorization_code" })).not.toBeNull();
+  });
+});
+
+describe("unauthenticatedRegistrationError", () => {
+  const message = /public PKCE clients/;
+
+  it("allows a public client without a session", () => {
+    expect(unauthenticatedRegistrationError({ token_endpoint_auth_method: "none" }, false)).toBeNull();
+  });
+
+  it("refuses a confidential client without a session", () => {
+    expect(unauthenticatedRegistrationError({ token_endpoint_auth_method: "client_secret_basic" }, false)).toMatch(message);
+    expect(unauthenticatedRegistrationError({ token_endpoint_auth_method: "client_secret_post" }, false)).toMatch(message);
+    // Omitting the method defaults to a confidential client in Better Auth, so refuse that too.
+    expect(unauthenticatedRegistrationError({ client_name: "agent" }, false)).toMatch(message);
+    expect(unauthenticatedRegistrationError(undefined, false)).toMatch(message);
+  });
+
+  it("allows any client with a session (admin console or signed-in user)", () => {
+    expect(unauthenticatedRegistrationError({ token_endpoint_auth_method: "client_secret_basic" }, true)).toBeNull();
+    expect(unauthenticatedRegistrationError({}, true)).toBeNull();
   });
 });
 

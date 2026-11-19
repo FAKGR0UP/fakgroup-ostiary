@@ -17,9 +17,16 @@ import {
   type ClientRegistrationSettings,
   type DynamicRegistrationMode,
 } from "@ostiary/core/lib/client-registration-policy";
+import {
+  pruneNeverUsedSelfRegisteredClients,
+  removeDuplicateSelfRegisteredClients,
+} from "@ostiary/core/lib/client-dedupe";
+import { MAX_UNUSED_CLIENT_DAYS } from "@ostiary/core/lib/client-dedupe-policy";
 import { parseLogoUri } from "@ostiary/core/lib/admin/oauth-clients/oauth-client-admin.validation";
 import { currentApiScopes, OIDC_SCOPES } from "@ostiary/core/lib/oauth-scopes";
-import { adminActor } from "@/lib/admin-audit";
+import { z } from "zod";
+
+import { adminAction, input, type AdminActor } from "@/lib/admin-action";
 import type { ActionResult } from "@/lib/action-result";
 
 /*
@@ -35,10 +42,27 @@ type ClientRegistrationInput = {
   /** One host per line or separated by commas. */
   metadataDocumentHosts: string;
   maxRegistrationsPerHour: number;
+  reuseIdenticalPublicClients: boolean;
 };
 
+const registrationInput = z.tuple([
+      z.object({
+        // Checked by the action, which says which modes exist.
+        dynamic: z.string().max(64).transform((mode) => mode as DynamicRegistrationMode),
+        metadataDocuments: z.boolean(),
+        scopes: z.array(z.string().max(256)).max(1000),
+        metadataDocumentHosts: input.longText,
+        maxRegistrationsPerHour: z.number(),
+        reuseIdenticalPublicClients: z.boolean(),
+      }),
+    ]);
+
 export async function updateClientRegistration(input: ClientRegistrationInput): Promise<ActionResult> {
-  const { session, audit } = await adminActor();
+  return adminAction(registrationInput, [input], ([input], actor) => updateClientRegistrationRun(input, actor));
+}
+
+async function updateClientRegistrationRun(input: ClientRegistrationInput, actor: AdminActor): Promise<ActionResult> {
+  const { session, audit } = actor;
   const t = await getTranslations("admin.pages.applications.actions.registration");
   if (!(DYNAMIC_REGISTRATION_MODES as readonly string[]).includes(input.dynamic)) {
     return { ok: false, error: t("chooseMode") };
@@ -66,6 +90,7 @@ export async function updateClientRegistration(input: ClientRegistrationInput): 
     scopes,
     metadataDocumentHosts: [...new Set(hosts)],
     maxRegistrationsPerHour: max,
+    reuseIdenticalPublicClients: input.reuseIdenticalPublicClients,
   };
   let narrowed: number;
   try {
@@ -96,8 +121,14 @@ async function selfRegisteredClient(clientId: string) {
   return { ok: true as const, source, name: row?.name ?? null };
 }
 
+const disabledInput = z.tuple([input.id, z.boolean()]);
+
 export async function setSelfRegisteredClientDisabled(clientId: string, disabled: boolean): Promise<ActionResult> {
-  const { audit } = await adminActor();
+  return adminAction(disabledInput, [clientId, disabled], ([clientId, disabled], actor) => setSelfRegisteredClientDisabledRun(clientId, disabled, actor));
+}
+
+async function setSelfRegisteredClientDisabledRun(clientId: string, disabled: boolean, actor: AdminActor): Promise<ActionResult> {
+  const { audit } = actor;
   const client = await selfRegisteredClient(clientId);
   if (!client.ok) return client;
   // Better Auth refuses disabled clients at authorization, token and introspection.
@@ -113,12 +144,18 @@ export async function setSelfRegisteredClientDisabled(clientId: string, disabled
   return { ok: true };
 }
 
+const iconInput = z.tuple([input.id, input.text]);
+
 /**
  * Sets or clears (empty) the icon of a dynamically registered client. A metadata document
  * client's icon comes from its document, which replaces it on every refresh.
  */
 export async function setSelfRegisteredClientIcon(clientId: string, logoUri: string): Promise<ActionResult> {
-  const { audit } = await adminActor();
+  return adminAction(iconInput, [clientId, logoUri], ([clientId, logoUri], actor) => setSelfRegisteredClientIconRun(clientId, logoUri, actor));
+}
+
+async function setSelfRegisteredClientIconRun(clientId: string, logoUri: string, actor: AdminActor): Promise<ActionResult> {
+  const { audit } = actor;
   const client = await selfRegisteredClient(clientId);
   if (!client.ok) return client;
   const t = await getTranslations("admin.pages.applications.actions.registration");
@@ -137,8 +174,14 @@ export async function setSelfRegisteredClientIcon(clientId: string, logoUri: str
   return { ok: true };
 }
 
+const clientInput = z.tuple([input.id]);
+
 export async function deleteSelfRegisteredClient(clientId: string): Promise<ActionResult> {
-  const { audit } = await adminActor();
+  return adminAction(clientInput, [clientId], ([clientId], actor) => deleteSelfRegisteredClientRun(clientId, actor));
+}
+
+async function deleteSelfRegisteredClientRun(clientId: string, actor: AdminActor): Promise<ActionResult> {
+  const { audit } = actor;
   const client = await selfRegisteredClient(clientId);
   if (!client.ok) return client;
   // Its tokens and consents go with it (foreign keys cascade).
@@ -149,4 +192,41 @@ export async function deleteSelfRegisteredClient(clientId: string): Promise<Acti
     metadata: { source: client.source },
   });
   return { ok: true };
+}
+
+/**
+ * Removes duplicate self-registered public clients (client-dedupe.ts): keeps the most recently
+ * used of each group, deletes the others unless they still hold live tokens. With
+ * `neverUsedDays`, also deletes self-registered clients never used and older than that.
+ */
+export async function removeUnusedDuplicateClients(
+  neverUsedDays: number | null,
+): Promise<ActionResult<{ removed: number; inUse: number }>> {
+  return adminAction(z.tuple([z.number().nullable()]), [neverUsedDays], ([days], actor) => removeUnusedDuplicateClientsRun(days, actor));
+}
+
+async function removeUnusedDuplicateClientsRun(
+  neverUsedDays: number | null,
+  { audit }: AdminActor,
+): Promise<ActionResult<{ removed: number; inUse: number }>> {
+  const t = await getTranslations("admin.pages.applications.actions.registration");
+  if (neverUsedDays !== null && (!Number.isInteger(neverUsedDays) || neverUsedDays < 1 || neverUsedDays > MAX_UNUSED_CLIENT_DAYS)) {
+    return { ok: false, error: t("invalidUnusedDays", { max: String(MAX_UNUSED_CLIENT_DAYS) }) };
+  }
+  try {
+    const report = await removeDuplicateSelfRegisteredClients();
+    const pruned = neverUsedDays === null ? [] : await pruneNeverUsedSelfRegisteredClients(neverUsedDays);
+    await audit({
+      action: "oauth_client.remove_duplicates",
+      metadata: {
+        groups: report.groups.map((group) => ({ name: group.name, kept: group.kept, removed: group.removed, inUse: group.inUse })),
+        neverUsedDays,
+        pruned,
+      },
+    });
+    return { ok: true, removed: report.removed + pruned.length, inUse: report.inUse };
+  } catch (error) {
+    console.error("Could not remove duplicate clients", error);
+    return { ok: false, error: t("cleanupFailed") };
+  }
 }

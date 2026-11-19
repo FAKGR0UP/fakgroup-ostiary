@@ -6,23 +6,30 @@ import { db } from "@ostiary/core/db/index";
 import { clientIp, recordAuthEvent } from "@ostiary/core/lib/auth-events";
 import { adminNeedsTwoFactor } from "@ostiary/core/lib/admin/admin-two-factor";
 import { isPlatformAdmin } from "@ostiary/core/lib/admin/user-has-admin-role";
+import { RECENT_SIGN_IN_SECONDS, signedInRecently } from "@ostiary/core/lib/recent-sign-in";
 import { publicOrganizationRequestRefused } from "@ostiary/core/lib/security/public-organization-guard";
 import { parseSsoDomain } from "@ostiary/core/lib/security/sso-domain";
+import { ssoDomainClaimed } from "@ostiary/core/lib/security/sso-domain-claims";
+import { emailAliasTaken } from "@ostiary/core/lib/security/email-aliases";
 import { env } from "@ostiary/core/lib/env";
 import { syncProviderScopes } from "@ostiary/core/lib/oauth-scopes";
 import { syncSigningKeys } from "@ostiary/core/lib/signing-keys";
 import { googleOneTap, syncSocialProviders } from "@ostiary/core/lib/social-providers";
 import { registrationCapacityLeft, syncClientRegistration } from "@ostiary/core/lib/client-registration";
-import { registrationRequestError, type ClientRegistrationSettings } from "@ostiary/core/lib/client-registration-policy";
+import {
+    effectiveRegistrationScopes,
+    registrationRequestError,
+    type ClientRegistrationSettings,
+} from "@ostiary/core/lib/client-registration-policy";
+import { findReusablePublicClient, registrationResponse } from "@ostiary/core/lib/client-dedupe";
 import { ACCOUNT_DELETION_BLOCKED, accountDeletionBlockers } from "@ostiary/core/lib/account-data/blockers";
 import type { Bag } from "@ostiary/core/lib/auth-hooks/values";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 
 /**
- * Endpoints that grant lasting access to the account. They need a sign-in from the last
- * 10 minutes, measured from when the session was created: Better Auth's own `freshAge`
- * counts from the session's last refresh, which a stolen cookie can trigger by itself.
+ * Endpoints that grant lasting access to the account. They need a recent sign-in
+ * (lib/recent-sign-in.ts).
  */
 const RECENT_SIGN_IN_PATHS = new Set([
     "/passkey/generate-register-options",
@@ -30,11 +37,10 @@ const RECENT_SIGN_IN_PATHS = new Set([
     // Connecting a GitHub (or other) account adds a way to sign in, like a passkey.
     "/link-social",
 ]);
-export const RECENT_SIGN_IN_SECONDS = 10 * 60;
+export { RECENT_SIGN_IN_SECONDS };
 
-/** Whether the session was created (signed in) longer than RECENT_SIGN_IN_SECONDS ago. */
 function signInTooOld(session: { createdAt: Date | string }): boolean {
-    return Date.now() - new Date(session.createdAt).getTime() > RECENT_SIGN_IN_SECONDS * 1000;
+    return !signedInRecently(session.createdAt);
 }
 
 /** Admin-only endpoints. An admin who must turn on two-factor authentication first cannot call them. */
@@ -67,13 +73,40 @@ async function requireAdminTwoFactor(ctx: Ctx) {
 
 /**
  * Better Auth checks scopes, redirect URIs and PKCE. Self-registered clients also get no
- * machine access, and an hourly cap across instances limits abuse (on top of Better Auth's
- * per-IP limit of 5 registrations a minute).
+ * machine access, and an hourly cap across instances limits abuse (on top of the per-IP
+ * limit in rate-limit.ts).
  */
-async function guardDynamicRegistration(ctx: Ctx, registration: ClientRegistrationSettings) {
+async function guardDynamicRegistration(
+    ctx: Ctx,
+    registration: ClientRegistrationSettings,
+    serverScopes: readonly string[],
+) {
     const refused = registrationRequestError(ctx.body);
     if (refused) {
         throw new APIError("BAD_REQUEST", { error: "invalid_client_metadata", error_description: refused });
+    }
+    const anonymous = !(await getSessionFromCtx(ctx));
+    // Unauthenticated registration is COERCED to a public PKCE client, never refused: MCP clients
+    // (e.g. Claude) often omit token_endpoint_auth_method, and Better Auth would then default it to a
+    // confidential client with a secret. An anonymous caller must never receive a secret, so force
+    // the public method; a confidential client still requires a signed-in session.
+    if (anonymous && ctx.body && typeof ctx.body === "object") {
+        (ctx.body as { token_endpoint_auth_method?: string }).token_endpoint_auth_method = "none";
+    }
+    // MCP clients register again on every connection: an identical public client is handed back
+    // (same client_id, 201 with its stored metadata) instead of adding one more. It has no secret,
+    // so this gives nothing away. Not counted against the hourly cap: nothing is created. Only
+    // where Better Auth would accept the anonymous request itself: open registration, and no
+    // Authorization header (an initial access token gives the client an owner).
+    const openToAnyone = registration.dynamic === "open" && !ctx.headers?.get("authorization");
+    if (anonymous && openToAnyone && registration.reuseIdenticalPublicClients) {
+        const existing = await findReusablePublicClient(ctx.body, effectiveRegistrationScopes(registration, serverScopes));
+        if (existing) {
+            return new Response(JSON.stringify(registrationResponse(existing)), {
+                status: 201,
+                headers: { "content-type": "application/json", "cache-control": "no-store", pragma: "no-cache" },
+            });
+        }
     }
     if (!(await registrationCapacityLeft(registration))) {
         throw new APIError("TOO_MANY_REQUESTS", {
@@ -87,12 +120,20 @@ async function guardDynamicRegistration(ctx: Ctx, registration: ClientRegistrati
  * One parser for the domain everywhere (sso-domain.ts): a value that the plugin (tldts) and
  * the DNS verification (URL) could read differently is refused.
  */
-function guardSsoRegistration(ctx: Ctx) {
+async function guardSsoRegistration(ctx: Ctx) {
     const domain = (ctx.body as Bag | undefined)?.domain;
     if (typeof domain !== "string" || parseSsoDomain(domain) !== domain) {
         throw new APIError("BAD_REQUEST", {
             message: "Enter one email domain in lowercase, e.g. acme.com.",
             code: "INVALID_SSO_DOMAIN",
+        });
+    }
+    // Sign-in picks the provider by the email's domain, so one provider per domain (the unique
+    // index on lower(domain) backs this up when two registrations race).
+    if (await ssoDomainClaimed(domain)) {
+        throw new APIError("BAD_REQUEST", {
+            message: "Another SSO provider already uses this domain.",
+            code: "SSO_DOMAIN_TAKEN",
         });
     }
 }
@@ -181,6 +222,12 @@ async function guardEmailChange(ctx: Ctx) {
             code: "EMAIL_NOT_VERIFIED",
         });
     }
+    // EMAIL_DEDUP: an alias of another account's address answers as Better Auth does for a
+    // taken address (success, nothing sent), so the change cannot test which addresses exist.
+    const newEmail = (ctx.body as { newEmail?: unknown } | undefined)?.newEmail;
+    if (current && typeof newEmail === "string" && (await emailAliasTaken(db, newEmail, env.EMAIL_DEDUP, current.user.id))) {
+        return ctx.json({ status: true });
+    }
 }
 
 /** Signing out of one of several accounts (account switcher) deletes that session only. */
@@ -226,7 +273,9 @@ export function guardRequests({
         if (env.REQUIRE_ADMIN_2FA === "true" && isAdminPath(ctx.path)) await requireAdminTwoFactor(ctx);
         const registration = await syncClientRegistration(provider.options, metadataDocuments);
         // Device sign-in is for admin-registered clients only: see oauthClientGuard.
-        if (ctx.path === "/oauth2/register" && registration.dynamic !== "off") return guardDynamicRegistration(ctx, registration);
+        if (ctx.path === "/oauth2/register" && registration.dynamic !== "off") {
+            return guardDynamicRegistration(ctx, registration, provider.options.scopes ?? []);
+        }
         if (ctx.path === "/sso/register") return guardSsoRegistration(ctx);
         if (ctx.path.startsWith("/organization/")) return guardOrganizationRequest(ctx);
         if (RECENT_SIGN_IN_PATHS.has(ctx.path)) return requireRecentSignIn(ctx);

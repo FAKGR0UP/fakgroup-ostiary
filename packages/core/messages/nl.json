@@ -286,10 +286,6 @@
           "empty": "Nog geen gebruikers."
         },
         "stats": {
-          "error": "Een of meer statistieken konden niet worden geladen. Controleer of je bent ingelogd als beheerder.",
-          "errorTitle": "Statistieken niet beschikbaar",
-          "loadingTitle": "Laden",
-          "loadingHint": "Laden…",
           "totalUsers": {
             "title": "Totaal aantal gebruikers",
             "hint": "Alle accounts op het platform."
@@ -369,7 +365,11 @@
           "previous": "Vorige",
           "next": "Volgende",
           "page": "Pagina {page} / {total}",
-          "footnote": "Gegevens uit <code>{getClients}</code>. Registreren en bewerken (inclusief <code>{skipConsent}</code>) roepen <code>{create}</code> en <code>{update}</code> aan; andere wijzigingen gebruiken <code>{deleteClient}</code> en <code>{rotateSecret}</code>. Zie de documentatie van de <docs>OAuth provider</docs>. Clients zijn beperkt tot de ingelogde gebruiker (of <code>{clientReference}</code> als dat is ingesteld). Zelf geregistreerde clients hebben geen eigenaar en worden allemaal getoond; ze kunnen worden uitgeschakeld of verwijderd, niet bewerkt."
+          "footnote": "Gegevens uit <code>{getClients}</code>. Registreren en bewerken (inclusief <code>{skipConsent}</code>) roepen <code>{create}</code> en <code>{update}</code> aan; andere wijzigingen gebruiken <code>{deleteClient}</code> en <code>{rotateSecret}</code>. Zie de documentatie van de <docs>OAuth provider</docs>. Clients zijn beperkt tot de ingelogde gebruiker (of <code>{clientReference}</code> als dat is ingesteld). Zelf geregistreerde clients hebben geen eigenaar en worden allemaal getoond; ze kunnen worden uitgeschakeld of verwijderd, niet bewerkt.",
+          "duplicates": "×{count}",
+          "duplicatesHint": "{count} identieke zelf geregistreerde clients",
+          "showDuplicates": "Alle {count} tonen",
+          "hideDuplicates": "Identieke verbergen"
         },
         "registration": {
           "title": "Zelfregistratie",
@@ -405,7 +405,12 @@
           "hostsHint": "Eén per regel. Leeg: elke openbare HTTPS-host.",
           "scopesLabel": "Scopes die zelf geregistreerde clients mogen aanvragen",
           "scopesHint": "Elke gebruiker keurt nog steeds de scopes goed die een app vraagt. Een scope verwijderen haalt hem ook weg bij al geregistreerde clients; al uitgegeven tokens behouden hem tot ze verlopen.",
-          "perHourHint": "Over alle instanties, voor beide methoden. Elk adres is ook beperkt tot 5 registraties per minuut."
+          "perHourHint": "Over alle instanties, voor beide methoden. Elk adres is ook beperkt tot 5 registraties per minuut.",
+          "reuse": "Identieke openbare clients",
+          "reuseOn": "Hergebruikt",
+          "reuseOff": "Elke keer een nieuwe client",
+          "reuseLabel": "Identieke openbare clients hergebruiken",
+          "reuseHint": "Een app zonder geheim die zich opnieuw registreert met dezelfde naam, redirect-URI’s, grants en scopes krijgt zijn bestaande client terug in plaats van een nieuwe. MCP-clients zoals Claude registreren zich bij elke verbinding."
         },
         "branding": {
           "title": "Huisstijl van het inloggen",
@@ -483,7 +488,9 @@
             "clientGone": "Deze client bestaat niet meer.",
             "notSelfRegistered": "Alleen zelf geregistreerde clients kunnen hier worden gewijzigd.",
             "invalidIconUrl": "De pictogram-URL moet een https-adres op een openbare host zijn (localhost en privéadressen kunnen niet worden opgehaald).",
-            "iconFromMetadataDocument": "Het pictogram van deze client komt uit zijn metadatadocument."
+            "iconFromMetadataDocument": "Het pictogram van deze client komt uit zijn metadatadocument.",
+            "invalidUnusedDays": "Het aantal dagen moet een geheel getal van 1 tot {max} zijn.",
+            "cleanupFailed": "De dubbele clients konden niet worden verwijderd."
           },
           "branding": {
             "clientGone": "Deze applicatie bestaat niet meer.",
@@ -604,6 +611,17 @@
           "panelImageEmpty": "De afbeelding van het zijpaneel is leeg.",
           "panelImageTooLarge": "De afbeelding van het zijpaneel mag maximaal 1 MB zijn.",
           "panelImageType": "De afbeelding van het zijpaneel moet een PNG-, JPEG-, WebP- of AVIF-afbeelding zijn."
+        },
+        "cleanup": {
+          "trigger": "Ongebruikte duplicaten verwijderen",
+          "title": "Ongebruikte duplicaten verwijderen?",
+          "description": "Van elke groep identieke zelf geregistreerde apps blijft de meest recent gebruikte behouden. De andere worden met hun toestemmingen verwijderd, behalve apps die nog een geldig toegangs- of vernieuwingstoken hebben: die blijven, zodat niemand wordt uitgelogd.",
+          "pruneLabel": "Ook zelf geregistreerde apps verwijderen die nooit zijn gebruikt",
+          "pruneHint": "Geen token en geen toestemming, meer dan dit aantal dagen geleden geregistreerd.",
+          "daysLabel": "Dagen",
+          "confirm": "Verwijderen",
+          "done": "{removed, plural, one {# client verwijderd} other {# clients verwijderd}}.",
+          "doneInUse": "{removed, plural, one {# client verwijderd} other {# clients verwijderd}}. {inUse, plural, one {# duplicaat behouden: deze is nog ingelogd.} other {# duplicaten behouden: deze zijn nog ingelogd.}}"
         }
       },
       "apis": {
@@ -1371,8 +1389,6 @@
           "roleAll": "Alle rollen",
           "roleAdmin": "Beheerder",
           "roleUser": "Gebruiker",
-          "loadErrorTitle": "De gebruikers konden niet worden geladen",
-          "loadErrorFallback": "Kan gebruikers niet laden",
           "columns": {
             "user": "Gebruiker",
             "role": "Rol",
@@ -1380,7 +1396,6 @@
             "verified": "Geverifieerd",
             "joined": "Lid sinds"
           },
-          "loading": "Gebruikers laden…",
           "empty": "Geen gebruikers komen overeen met je filters.",
           "noUsers": "0 gebruikers",
           "showing": "{from}-{to} van {total} weergegeven",
@@ -1445,8 +1460,7 @@
           "updatePassword": "Wachtwoord bijwerken",
           "removeTitle": "Gebruiker verwijderen?",
           "removeDescription": "Hiermee worden <strong>{name}</strong> ({email}) en alles wat aan het account is gekoppeld definitief verwijderd. Items in het auditlogboek blijven bewaard zonder naam of e-mailadres. Dit kan niet ongedaan worden gemaakt.",
-          "removeConfirm": "Verwijderen",
-          "removing": "Verwijderen…"
+          "removeConfirm": "Verwijderen"
         },
         "detailActions": {
           "impersonateError": "Kan niet inloggen als deze gebruiker.",
@@ -1537,10 +1551,6 @@
         "title": "Toestemming",
         "description": "Machtigingen die mensen aan OAuth-clients hebben gegeven, met de scopes en wanneer ze zijn verleend.",
         "panel": {
-          "signedInUser": "Ingelogde gebruiker",
-          "loadConsentsFailed": "Kan toestemmingen niet laden",
-          "loadClientsFailed": "Kan OAuth-clients niet laden",
-          "loadErrorTitle": "De toestemmingen konden niet worden geladen",
           "searchPlaceholder": "Zoeken op gebruiker, client, toestemmings-ID, referentie of scope…",
           "searchLabel": "Toestemmingen zoeken",
           "filter": {
@@ -1556,16 +1566,14 @@
             "granted": "Verleend",
             "updated": "Bijgewerkt"
           },
-          "loading": "Toestemmingen laden…",
-          "emptyNone": "Nog geen toestemmingen vastgelegd voor dit account.",
+          "emptyNone": "Nog niemand heeft toestemming gegeven aan een applicatie.",
           "emptyFiltered": "Geen toestemmingen komen overeen met je filters.",
           "noResults": "0 toestemmingen",
           "showing": "{from}-{to} van {total} weergegeven",
           "rowsPerPage": "Rijen per pagina",
           "previous": "Vorige",
           "next": "Volgende",
-          "pageOf": "Pagina {page} / {total}",
-          "footnote": "Gegevens uit <code>{getConsents}</code>; clientnamen opgehaald via <code>{getClients}</code>. Intrekken gebruikt <code>{deleteConsent}</code>. Zie <consentLink>OAuth consent</consentLink> in de documentatie van de <providerLink>OAuth provider</providerLink>. De interactieve autorisatie-UI staat op <code>{path}</code>."
+          "pageOf": "Pagina {page} / {total}"
         },
         "rowActions": {
           "menuLabel": "Acties voor toestemming {id}…",
@@ -1573,16 +1581,13 @@
           "consentIdCopied": "Toestemmings-ID gekopieerd",
           "copyClientId": "Client-ID kopiëren",
           "clientIdCopied": "Client-ID gekopieerd",
-          "viewDetails": "Details bekijken",
-          "updateScopes": "Scopes bijwerken",
-          "wireTo": "Koppelen aan {method}",
           "revoke": "Toestemming intrekken",
           "revokeFailed": "Kan de toestemming niet intrekken",
           "revoked": "Toestemming ingetrokken",
           "dialogTitle": "Toestemming intrekken?",
-          "dialogDescription": "Verwijdert de toestemming van deze gebruiker voor <strong>{client}</strong> (<code>{clientId}</code>). De client moet mogelijk opnieuw om autorisatie vragen.",
-          "revoking": "Intrekken…",
-          "revokeButton": "Intrekken"
+          "dialogDescription": "Verwijdert de toestemming van <strong>{user}</strong> voor <strong>{client}</strong> (<code>{clientId}</code>) en trekt de tokens in die de app voor deze persoon heeft. De app moet opnieuw toestemming vragen om nieuwe te krijgen.",
+          "revokeButton": "Intrekken",
+          "notFound": "Deze toestemming bestaat niet meer."
         }
       },
       "usage": {
@@ -1611,7 +1616,7 @@
       "audit": {
         "title": "Auditlogboek",
         "description": "Elke wijziging via deze console of de beheer-API: wie het deed, waaraan en wanneer.",
-        "footnote": "De laatste 200 items worden getoond. Wachtwoorden en geheimen worden nooit vastgelegd.",
+        "footnote": "Wachtwoorden en geheimen worden nooit vastgelegd.",
         "filterLabel": "Filteren op onderdeel",
         "filters": {
           "all": "Alle",
@@ -1661,7 +1666,8 @@
             "disable": "OAuth-client uitgeschakeld",
             "enable": "OAuth-client ingeschakeld",
             "branding_update": "Huisstijl van het inloggen gewijzigd",
-            "branding_reset": "Huisstijl van het inloggen teruggezet"
+            "branding_reset": "Huisstijl van het inloggen teruggezet",
+            "remove_duplicates": "Dubbele OAuth-clients verwijderd"
           },
           "client_registration": {
             "update": "Zelfregistratie van clients gewijzigd"
@@ -1730,7 +1736,12 @@
             "test": "Webhook-testgebeurtenis verstuurd",
             "redeliver": "Webhookgebeurtenis opnieuw geleverd"
           }
-        }
+        },
+        "actorPlaceholder": "Zoeken op wie het deed (e-mail)…",
+        "actorLabel": "Zoeken op uitvoerder",
+        "pagesLabel": "Pagina's van het auditlogboek",
+        "newest": "Nieuwste items",
+        "older": "Oudere items"
       },
       "security": {
         "title": "Beveiliging",
@@ -1827,8 +1838,14 @@
         }
       },
       "organizations": {
+        "title": "Organisaties",
+        "description": "Alle organisaties op het platform, met hun leden. Open er een om leden, SSO en SCIM te beheren.",
+        "list": {
+          "searchPlaceholder": "Zoeken op naam of slug…",
+          "searchLabel": "Organisaties zoeken",
+          "noMatch": "Geen organisatie komt overeen met je zoekopdracht."
+        },
         "controls": {
-          "unexpectedError": "Er is iets misgegaan.",
           "organizationUpdated": "Organisatie bijgewerkt",
           "slug": "Slug",
           "role": "Rol",
@@ -1880,7 +1897,7 @@
           "defaultWorkspace": "Standaardwerkruimte",
           "createdAt": "Aangemaakt op {date}",
           "members": "Leden",
-          "publicMembers": "Elk account hoort bij de werkruimte Public, dus leden kunnen hier niet worden verwijderd. De eerste 50 worden getoond.",
+          "publicMembers": "Elk account hoort bij de werkruimte Public, dus leden kunnen hier niet worden verwijderd.",
           "memberCount": "{count, plural, one {# lid} other {# leden}}.",
           "noMembers": "Nog geen leden.",
           "member": "Lid",
@@ -1918,7 +1935,10 @@
           "invitationNotFound": "Uitnodiging niet gevonden.",
           "requestFailed": "Verzoek mislukt.",
           "scimUnavailable": "Deze organisatie kan geen SCIM-inrichting gebruiken.",
-          "noActiveToken": "Er is geen actief token."
+          "noActiveToken": "Er is geen actief token.",
+          "lastOwner": "Een organisatie heeft minstens één eigenaar nodig. Maak eerst een ander lid eigenaar.",
+          "publicDelete": "De Public-werkruimte kan niet worden verwijderd.",
+          "organizationNotFound": "Organisatie niet gevonden."
         }
       }
     },
@@ -1954,7 +1974,15 @@
       "refresh": "Vernieuwen",
       "search": "Zoeken",
       "optional": "Optioneel",
-      "unexpectedError": "Er is iets misgegaan. Probeer het opnieuw."
+      "unexpectedError": "Er is iets misgegaan. Probeer het opnieuw.",
+      "invalidInput": "Sommige verzonden waarden zijn ongeldig. Laad de pagina opnieuw en probeer het nog eens.",
+      "pagination": {
+        "rowsPerPage": "Rijen per pagina",
+        "previous": "Vorige",
+        "next": "Volgende",
+        "pageOf": "Pagina {page} / {pages}",
+        "showing": "{from}-{to} van {total} weergegeven"
+      }
     },
     "urlCheck": {
       "tooLong": "De URL is te lang.",
@@ -2564,7 +2592,8 @@
       "txtRecordNotFound": "Het TXT-record is nog niet gevonden. Het kan een paar minuten duren voordat DNS-wijzigingen zichtbaar zijn.",
       "envNotSet": "{name} is niet ingesteld.",
       "invalidProviderId": "De provider-ID moet bestaan uit 2 tot 63 kleine letters, cijfers, - of _.",
-      "unreadableSamlConfig": "De opgeslagen SAML-configuratie is onleesbaar; verwijder de provider en registreer hem opnieuw."
+      "unreadableSamlConfig": "De opgeslagen SAML-configuratie is onleesbaar; verwijder de provider en registreer hem opnieuw.",
+      "domainTaken": "Een andere SSO-provider gebruikt dit domein al."
     }
   },
   "selectAccount": {
@@ -2646,5 +2675,23 @@
       "note": "De link verloopt over {minutes} minuten en werkt maar één keer.",
       "footnote": "Heb je dit niet aangevraagd? Negeer dan deze e-mail: je account blijft zoals het is. Overweeg wel je wachtwoord te wijzigen, want het verzoek kwam vanuit een ingelogde sessie."
     }
+  },
+  "authErrors": {
+    "banned": "Dit account is geschorst. Neem contact op met support als je denkt dat dit een vergissing is.",
+    "deactivated": "Je organisatie heeft dit account gedeactiveerd.",
+    "invalidCredentials": "Onjuist e-mailadres, gebruikersnaam of wachtwoord.",
+    "userExists": "Er bestaat al een account met dit e-mailadres.",
+    "usernameTaken": "Deze gebruikersnaam is al in gebruik.",
+    "usernameInvalid": "Deze gebruikersnaam kan niet worden gebruikt. Probeer een andere.",
+    "passwordTooShort": "Dit wachtwoord is te kort.",
+    "passwordTooLong": "Dit wachtwoord is te lang.",
+    "passwordCompromised": "Dit wachtwoord is in een datalek opgedoken. Kies een ander.",
+    "invalidPassword": "Onjuist wachtwoord.",
+    "recentSignIn": "Log opnieuw in om dit te doen.",
+    "sessionExpired": "Je sessie is verlopen. Log opnieuw in.",
+    "impersonating": "Dit kan niet terwijl een beheerder het account bekijkt.",
+    "emailNotVerified": "Bevestig eerst je e-mailadres.",
+    "invalidToken": "Deze link is ongeldig of verlopen.",
+    "publicOrganization": "De leden van de organisatie Public worden alleen door platformbeheerders beheerd."
   }
 }

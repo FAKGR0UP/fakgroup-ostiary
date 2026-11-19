@@ -286,10 +286,6 @@
           "empty": "Brak użytkowników."
         },
         "stats": {
-          "error": "Nie udało się wczytać co najmniej jednego wskaźnika. Upewnij się, że jesteś zalogowany jako administrator.",
-          "errorTitle": "Wskaźniki niedostępne",
-          "loadingTitle": "Wczytywanie",
-          "loadingHint": "Wczytywanie…",
           "totalUsers": {
             "title": "Wszyscy użytkownicy",
             "hint": "Wszystkie konta na platformie."
@@ -369,7 +365,11 @@
           "previous": "Poprzednia",
           "next": "Następna",
           "page": "Strona {page} / {total}",
-          "footnote": "Dane z <code>{getClients}</code>. Rejestracja i edycja (w tym <code>{skipConsent}</code>) wywołują <code>{create}</code> i <code>{update}</code>; pozostałe zmiany używają <code>{deleteClient}</code> i <code>{rotateSecret}</code>. Zobacz dokumentację <docs>OAuth provider</docs>. Klienci są przypisani do zalogowanego użytkownika (lub do <code>{clientReference}</code>, jeśli skonfigurowano). Klienci zarejestrowani samodzielnie nie mają właściciela i są wyświetlani wszyscy; można ich wyłączyć lub usunąć, ale nie edytować."
+          "footnote": "Dane z <code>{getClients}</code>. Rejestracja i edycja (w tym <code>{skipConsent}</code>) wywołują <code>{create}</code> i <code>{update}</code>; pozostałe zmiany używają <code>{deleteClient}</code> i <code>{rotateSecret}</code>. Zobacz dokumentację <docs>OAuth provider</docs>. Klienci są przypisani do zalogowanego użytkownika (lub do <code>{clientReference}</code>, jeśli skonfigurowano). Klienci zarejestrowani samodzielnie nie mają właściciela i są wyświetlani wszyscy; można ich wyłączyć lub usunąć, ale nie edytować.",
+          "duplicates": "×{count}",
+          "duplicatesHint": "Identycznych klientów zarejestrowanych samodzielnie: {count}",
+          "showDuplicates": "Pokaż wszystkie ({count})",
+          "hideDuplicates": "Ukryj identyczne"
         },
         "registration": {
           "title": "Samorejestracja",
@@ -405,7 +405,12 @@
           "hostsHint": "Jeden w wierszu. Puste: dowolny publiczny host HTTPS.",
           "scopesLabel": "Scope'y, o które mogą prosić klienci zarejestrowani samodzielnie",
           "scopesHint": "Każdy użytkownik nadal zatwierdza scope'y, o które prosi aplikacja. Usunięcie scope'u usuwa go też z już zarejestrowanych klientów; wydane tokeny zachowują go do wygaśnięcia.",
-          "perHourHint": "Łącznie dla wszystkich instancji i obu metod. Każdy adres jest też ograniczony do 5 rejestracji na minutę."
+          "perHourHint": "Łącznie dla wszystkich instancji i obu metod. Każdy adres jest też ograniczony do 5 rejestracji na minutę.",
+          "reuse": "Identyczni klienci publiczni",
+          "reuseOn": "Używani ponownie",
+          "reuseOff": "Za każdym razem nowy klient",
+          "reuseLabel": "Używaj ponownie identycznych klientów publicznych",
+          "reuseHint": "Aplikacja bez sekretu, która rejestruje się ponownie z tą samą nazwą, URI przekierowania, grantami i scope'ami, otrzymuje z powrotem istniejącego klienta zamiast nowego. Klienci MCP, tacy jak Claude, rejestrują się przy każdym połączeniu."
         },
         "branding": {
           "title": "Wygląd logowania",
@@ -483,7 +488,9 @@
             "clientGone": "Ten klient już nie istnieje.",
             "notSelfRegistered": "Tutaj można zmieniać tylko klientów zarejestrowanych samodzielnie.",
             "invalidIconUrl": "URL ikony musi być adresem https na publicznym hoście (localhost i adresów prywatnych nie można pobrać).",
-            "iconFromMetadataDocument": "Ikona tego klienta pochodzi z jego dokumentu metadanych."
+            "iconFromMetadataDocument": "Ikona tego klienta pochodzi z jego dokumentu metadanych.",
+            "invalidUnusedDays": "Liczba dni musi być liczbą całkowitą od 1 do {max}.",
+            "cleanupFailed": "Nie udało się usunąć zduplikowanych klientów."
           },
           "branding": {
             "clientGone": "Ta aplikacja już nie istnieje.",
@@ -604,6 +611,17 @@
           "panelImageEmpty": "Obraz panelu bocznego jest pusty.",
           "panelImageTooLarge": "Obraz panelu bocznego może mieć najwyżej 1 MB.",
           "panelImageType": "Obraz panelu bocznego musi być w formacie PNG, JPEG, WebP lub AVIF."
+        },
+        "cleanup": {
+          "trigger": "Usuń nieużywane duplikaty",
+          "title": "Usunąć nieużywane duplikaty?",
+          "description": "Z każdej grupy identycznych aplikacji zarejestrowanych samodzielnie zachowywana jest ostatnio używana. Pozostałe są usuwane wraz z ich zgodami, z wyjątkiem tych, które nadal mają ważny token dostępu lub odświeżania: zostają, aby nikt nie został wylogowany.",
+          "pruneLabel": "Usuń też aplikacje zarejestrowane samodzielnie, które nigdy nie były używane",
+          "pruneHint": "Brak tokenu i zgody, zarejestrowane ponad tyle dni temu.",
+          "daysLabel": "Dni",
+          "confirm": "Usuń",
+          "done": "{removed, plural, one {Usunięto # klienta} few {Usunięto # klientów} many {Usunięto # klientów} other {Usunięto # klienta}}.",
+          "doneInUse": "{removed, plural, one {Usunięto # klienta} few {Usunięto # klientów} many {Usunięto # klientów} other {Usunięto # klienta}}. {inUse, plural, one {Zachowano # duplikat: jest nadal zalogowany.} few {Zachowano # duplikaty: są nadal zalogowane.} many {Zachowano # duplikatów: są nadal zalogowane.} other {Zachowano # duplikatu: są nadal zalogowane.}}"
         }
       },
       "apis": {
@@ -1371,8 +1389,6 @@
           "roleAll": "Wszystkie role",
           "roleAdmin": "Administrator",
           "roleUser": "Użytkownik",
-          "loadErrorTitle": "Nie udało się wczytać użytkowników",
-          "loadErrorFallback": "Nie udało się wczytać użytkowników",
           "columns": {
             "user": "Użytkownik",
             "role": "Rola",
@@ -1380,7 +1396,6 @@
             "verified": "Zweryfikowany",
             "joined": "Dołączył"
           },
-          "loading": "Wczytywanie użytkowników…",
           "empty": "Żaden użytkownik nie pasuje do filtrów.",
           "noUsers": "0 użytkowników",
           "showing": "Wyświetlono {from}-{to} z {total}",
@@ -1445,8 +1460,7 @@
           "updatePassword": "Zaktualizuj hasło",
           "removeTitle": "Usunąć użytkownika?",
           "removeDescription": "Spowoduje to trwałe usunięcie <strong>{name}</strong> ({email}) i wszystkiego, co jest powiązane z kontem. Wpisy dziennika audytu zostaną zachowane bez nazwy i adresu e-mail. Tej operacji nie można cofnąć.",
-          "removeConfirm": "Usuń",
-          "removing": "Usuwanie…"
+          "removeConfirm": "Usuń"
         },
         "detailActions": {
           "impersonateError": "Nie udało się zalogować jako ten użytkownik.",
@@ -1537,10 +1551,6 @@
         "title": "Zgody",
         "description": "Uprawnienia przyznane przez użytkowników klientom OAuth, wraz ze scope'ami i datą udzielenia.",
         "panel": {
-          "signedInUser": "Zalogowany użytkownik",
-          "loadConsentsFailed": "Nie udało się wczytać zgód",
-          "loadClientsFailed": "Nie udało się wczytać klientów OAuth",
-          "loadErrorTitle": "Nie udało się wczytać zgód",
           "searchPlaceholder": "Szukaj po użytkowniku, kliencie, ID zgody, referencji lub scope'ie…",
           "searchLabel": "Szukaj zgód",
           "filter": {
@@ -1556,16 +1566,14 @@
             "granted": "Udzielono",
             "updated": "Zaktualizowano"
           },
-          "loading": "Wczytywanie zgód…",
-          "emptyNone": "Brak zarejestrowanych zgód dla tego konta.",
+          "emptyNone": "Nikt jeszcze nie udzielił zgody żadnej aplikacji.",
           "emptyFiltered": "Żadna zgoda nie pasuje do filtrów.",
           "noResults": "0 zgód",
           "showing": "Wyświetlono {from}-{to} z {total}",
           "rowsPerPage": "Wierszy na stronę",
           "previous": "Poprzednia",
           "next": "Następna",
-          "pageOf": "Strona {page} / {total}",
-          "footnote": "Dane z <code>{getConsents}</code>; nazwy klientów ustalane przez <code>{getClients}</code>. Unieważnianie używa <code>{deleteConsent}</code>. Zobacz <consentLink>OAuth consent</consentLink> w dokumentacji <providerLink>OAuth provider</providerLink>. Interaktywny interfejs autoryzacji znajduje się pod <code>{path}</code>."
+          "pageOf": "Strona {page} / {total}"
         },
         "rowActions": {
           "menuLabel": "Działania dla zgody {id}…",
@@ -1573,16 +1581,13 @@
           "consentIdCopied": "Skopiowano ID zgody",
           "copyClientId": "Kopiuj ID klienta",
           "clientIdCopied": "Skopiowano ID klienta",
-          "viewDetails": "Pokaż szczegóły",
-          "updateScopes": "Zaktualizuj scope'y",
-          "wireTo": "Podłącz do {method}",
           "revoke": "Unieważnij zgodę",
           "revokeFailed": "Nie udało się unieważnić zgody",
           "revoked": "Zgoda unieważniona",
           "dialogTitle": "Unieważnić zgodę?",
-          "dialogDescription": "Usuwa uprawnienie tego użytkownika dla <strong>{client}</strong> (<code>{clientId}</code>). Klient może musieć ponownie poprosić o autoryzację.",
-          "revoking": "Unieważnianie…",
-          "revokeButton": "Unieważnij"
+          "dialogDescription": "Usuwa zgodę <strong>{user}</strong> dla <strong>{client}</strong> (<code>{clientId}</code>) i unieważnia tokeny, które aplikacja ma dla tej osoby. Aby dostać nowe, aplikacja musi poprosić ponownie.",
+          "revokeButton": "Unieważnij",
+          "notFound": "Ta zgoda już nie istnieje."
         }
       },
       "usage": {
@@ -1611,7 +1616,7 @@
       "audit": {
         "title": "Dziennik audytu",
         "description": "Każda zmiana wprowadzona w tej konsoli lub przez API administracyjne: kto, w czym i kiedy.",
-        "footnote": "Wyświetlanych jest 200 najnowszych wpisów. Hasła i sekrety nigdy nie są zapisywane.",
+        "footnote": "Hasła i sekrety nigdy nie są zapisywane.",
         "filterLabel": "Filtruj według obszaru",
         "filters": {
           "all": "Wszystko",
@@ -1661,7 +1666,8 @@
             "disable": "Wyłączono klienta OAuth",
             "enable": "Włączono klienta OAuth",
             "branding_update": "Zmieniono wygląd logowania",
-            "branding_reset": "Zresetowano wygląd logowania"
+            "branding_reset": "Zresetowano wygląd logowania",
+            "remove_duplicates": "Usunięto zduplikowanych klientów OAuth"
           },
           "client_registration": {
             "update": "Zmieniono samorejestrację klientów"
@@ -1730,7 +1736,12 @@
             "test": "Wysłano testowe zdarzenie webhooka",
             "redeliver": "Ponownie dostarczono zdarzenie webhooka"
           }
-        }
+        },
+        "actorPlaceholder": "Szukaj po wykonawcy (e-mail)…",
+        "actorLabel": "Szukaj po wykonawcy",
+        "pagesLabel": "Strony dziennika audytu",
+        "newest": "Najnowsze wpisy",
+        "older": "Starsze wpisy"
       },
       "security": {
         "title": "Bezpieczeństwo",
@@ -1827,8 +1838,14 @@
         }
       },
       "organizations": {
+        "title": "Organizacje",
+        "description": "Wszystkie organizacje na platformie wraz z członkami. Otwórz jedną, aby zarządzać członkami, SSO i SCIM.",
+        "list": {
+          "searchPlaceholder": "Szukaj po nazwie lub slugu…",
+          "searchLabel": "Szukaj organizacji",
+          "noMatch": "Żadna organizacja nie pasuje do wyszukiwania."
+        },
         "controls": {
-          "unexpectedError": "Coś poszło nie tak.",
           "organizationUpdated": "Organizacja zaktualizowana",
           "slug": "Slug",
           "role": "Rola",
@@ -1880,7 +1897,7 @@
           "defaultWorkspace": "Domyślna przestrzeń robocza",
           "createdAt": "Utworzono {date}",
           "members": "Członkowie",
-          "publicMembers": "Każde konto należy do przestrzeni roboczej Public, więc nie można tu usuwać członków. Wyświetlono pierwszych 50.",
+          "publicMembers": "Każde konto należy do przestrzeni roboczej Public, więc nie można tu usuwać członków.",
           "memberCount": "{count, plural, one {# członek} few {# członków} many {# członków} other {# członka}}.",
           "noMembers": "Brak członków.",
           "member": "Członek",
@@ -1918,7 +1935,10 @@
           "invitationNotFound": "Nie znaleziono zaproszenia.",
           "requestFailed": "Żądanie nie powiodło się.",
           "scimUnavailable": "Ta organizacja nie może korzystać z provisioningu SCIM.",
-          "noActiveToken": "Brak aktywnego tokenu."
+          "noActiveToken": "Brak aktywnego tokenu.",
+          "lastOwner": "Organizacja musi mieć co najmniej jednego właściciela. Najpierw nadaj tę rolę innemu członkowi.",
+          "publicDelete": "Obszaru roboczego Public nie można usunąć.",
+          "organizationNotFound": "Nie znaleziono organizacji."
         }
       }
     },
@@ -1954,7 +1974,15 @@
       "refresh": "Odśwież",
       "search": "Szukaj",
       "optional": "Opcjonalnie",
-      "unexpectedError": "Coś poszło nie tak. Spróbuj ponownie."
+      "unexpectedError": "Coś poszło nie tak. Spróbuj ponownie.",
+      "invalidInput": "Niektóre z wysłanych wartości są nieprawidłowe. Odśwież stronę i spróbuj ponownie.",
+      "pagination": {
+        "rowsPerPage": "Wierszy na stronę",
+        "previous": "Poprzednia",
+        "next": "Następna",
+        "pageOf": "Strona {page} / {pages}",
+        "showing": "Wyświetlono {from}-{to} z {total}"
+      }
     },
     "urlCheck": {
       "tooLong": "URL jest za długi.",
@@ -2564,7 +2592,8 @@
       "txtRecordNotFound": "Nie znaleziono jeszcze rekordu TXT. Zmiany DNS mogą pojawić się dopiero po kilku minutach.",
       "envNotSet": "{name} nie jest ustawiona.",
       "invalidProviderId": "ID dostawcy musi mieć od 2 do 63 znaków: małe litery, cyfry, - lub _.",
-      "unreadableSamlConfig": "Zapisana konfiguracja SAML jest nieczytelna; usuń dostawcę i zarejestruj go ponownie."
+      "unreadableSamlConfig": "Zapisana konfiguracja SAML jest nieczytelna; usuń dostawcę i zarejestruj go ponownie.",
+      "domainTaken": "Inny dostawca SSO używa już tej domeny."
     }
   },
   "selectAccount": {
@@ -2646,5 +2675,23 @@
       "note": "Link wygaśnie za {minutes} minut i działa tylko raz.",
       "footnote": "Jeśli to nie Ty, zignoruj tę wiadomość: Twoje konto pozostanie bez zmian. Rozważ zmianę hasła, ponieważ prośba została wysłana z zalogowanej sesji."
     }
+  },
+  "authErrors": {
+    "banned": "To konto zostało zawieszone. Skontaktuj się z pomocą techniczną, jeśli uważasz, że to pomyłka.",
+    "deactivated": "Twoja organizacja dezaktywowała to konto.",
+    "invalidCredentials": "Nieprawidłowy e-mail, nazwa użytkownika lub hasło.",
+    "userExists": "Konto z tym adresem e-mail już istnieje.",
+    "usernameTaken": "Ta nazwa użytkownika jest już zajęta.",
+    "usernameInvalid": "Tej nazwy użytkownika nie można użyć. Spróbuj innej.",
+    "passwordTooShort": "To hasło jest za krótkie.",
+    "passwordTooLong": "To hasło jest za długie.",
+    "passwordCompromised": "To hasło pojawiło się w wycieku danych. Wybierz inne.",
+    "invalidPassword": "Nieprawidłowe hasło.",
+    "recentSignIn": "Zaloguj się ponownie, aby to zrobić.",
+    "sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",
+    "impersonating": "Nie można tego zrobić, gdy administrator przegląda konto.",
+    "emailNotVerified": "Najpierw zweryfikuj swój adres e-mail.",
+    "invalidToken": "Ten link jest nieprawidłowy lub wygasł.",
+    "publicOrganization": "Członkami organizacji Public zarządzają wyłącznie administratorzy platformy."
   }
 }

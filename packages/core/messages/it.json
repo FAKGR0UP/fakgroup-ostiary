@@ -286,10 +286,6 @@
           "empty": "Ancora nessun utente."
         },
         "stats": {
-          "error": "Impossibile caricare una o più metriche. Verifica di aver effettuato l’accesso come amministratore.",
-          "errorTitle": "Metriche non disponibili",
-          "loadingTitle": "Caricamento",
-          "loadingHint": "Caricamento…",
           "totalUsers": {
             "title": "Utenti totali",
             "hint": "Tutti gli account della piattaforma."
@@ -369,7 +365,11 @@
           "previous": "Precedente",
           "next": "Successiva",
           "page": "Pagina {page} / {total}",
-          "footnote": "Dati da <code>{getClients}</code>. Registrazione e modifica (incluso <code>{skipConsent}</code>) chiamano <code>{create}</code> e <code>{update}</code>; le altre modifiche usano <code>{deleteClient}</code> e <code>{rotateSecret}</code>. Vedi la documentazione dell’<docs>OAuth provider</docs>. I client sono limitati all’utente connesso (o a <code>{clientReference}</code> se configurato). I client autoregistrati non hanno proprietario e sono tutti elencati; possono essere disattivati o eliminati, non modificati."
+          "footnote": "Dati da <code>{getClients}</code>. Registrazione e modifica (incluso <code>{skipConsent}</code>) chiamano <code>{create}</code> e <code>{update}</code>; le altre modifiche usano <code>{deleteClient}</code> e <code>{rotateSecret}</code>. Vedi la documentazione dell’<docs>OAuth provider</docs>. I client sono limitati all’utente connesso (o a <code>{clientReference}</code> se configurato). I client autoregistrati non hanno proprietario e sono tutti elencati; possono essere disattivati o eliminati, non modificati.",
+          "duplicates": "×{count}",
+          "duplicatesHint": "{count} client autoregistrati identici",
+          "showDuplicates": "Mostra tutti i {count}",
+          "hideDuplicates": "Nascondi identici"
         },
         "registration": {
           "title": "Autoregistrazione",
@@ -405,7 +405,12 @@
           "hostsHint": "Uno per riga. Vuoto: qualsiasi host HTTPS pubblico.",
           "scopesLabel": "Scope che i client autoregistrati possono richiedere",
           "scopesHint": "Ogni utente approva comunque gli scope richiesti da un’app. Rimuovere uno scope lo rimuove anche dai client già registrati; i token già emessi lo mantengono fino alla scadenza.",
-          "perHourHint": "Su tutte le istanze, per entrambi i metodi. Ogni indirizzo è inoltre limitato a 5 registrazioni al minuto."
+          "perHourHint": "Su tutte le istanze, per entrambi i metodi. Ogni indirizzo è inoltre limitato a 5 registrazioni al minuto.",
+          "reuse": "Client pubblici identici",
+          "reuseOn": "Riutilizzati",
+          "reuseOff": "Nuovo client ogni volta",
+          "reuseLabel": "Riutilizza i client pubblici identici",
+          "reuseHint": "Un’app senza secret che si registra di nuovo con lo stesso nome, gli stessi URI di reindirizzamento, grant e scope riottiene il client esistente invece di uno nuovo. I client MCP come Claude si registrano a ogni connessione."
         },
         "branding": {
           "title": "Personalizzazione dell’accesso",
@@ -483,7 +488,9 @@
             "clientGone": "Questo client non esiste più.",
             "notSelfRegistered": "Qui si possono modificare solo i client autoregistrati.",
             "invalidIconUrl": "L’URL dell’icona deve essere un indirizzo https su un host pubblico (localhost e gli indirizzi privati non possono essere recuperati).",
-            "iconFromMetadataDocument": "L’icona di questo client proviene dal suo documento di metadati."
+            "iconFromMetadataDocument": "L’icona di questo client proviene dal suo documento di metadati.",
+            "invalidUnusedDays": "Il numero di giorni deve essere un numero intero da 1 a {max}.",
+            "cleanupFailed": "Impossibile rimuovere i client duplicati."
           },
           "branding": {
             "clientGone": "Questa applicazione non esiste più.",
@@ -604,6 +611,17 @@
           "panelImageEmpty": "L’immagine del pannello laterale è vuota.",
           "panelImageTooLarge": "L’immagine del pannello laterale deve pesare al massimo 1 MB.",
           "panelImageType": "L’immagine del pannello laterale deve essere un’immagine PNG, JPEG, WebP o AVIF."
+        },
+        "cleanup": {
+          "trigger": "Rimuovi duplicati inutilizzati",
+          "title": "Rimuovere i duplicati inutilizzati?",
+          "description": "Per ogni gruppo di app autoregistrate identiche viene mantenuta quella usata più di recente. Le altre vengono eliminate insieme ai relativi consensi, tranne quelle che hanno ancora un access token o un refresh token valido: restano, così nessuno viene disconnesso.",
+          "pruneLabel": "Elimina anche le app autoregistrate mai usate",
+          "pruneHint": "Nessun token e nessun consenso, registrate più di questo numero di giorni fa.",
+          "daysLabel": "Giorni",
+          "confirm": "Rimuovi",
+          "done": "{removed, plural, one {# client rimosso} other {# client rimossi}}.",
+          "doneInUse": "{removed, plural, one {# client rimosso} other {# client rimossi}}. {inUse, plural, one {# duplicato mantenuto: ha ancora un accesso attivo.} other {# duplicati mantenuti: hanno ancora un accesso attivo.}}"
         }
       },
       "apis": {
@@ -1371,8 +1389,6 @@
           "roleAll": "Tutti i ruoli",
           "roleAdmin": "Amministratore",
           "roleUser": "Utente",
-          "loadErrorTitle": "Impossibile caricare gli utenti",
-          "loadErrorFallback": "Caricamento degli utenti non riuscito",
           "columns": {
             "user": "Utente",
             "role": "Ruolo",
@@ -1380,7 +1396,6 @@
             "verified": "Verificato",
             "joined": "Iscritto il"
           },
-          "loading": "Caricamento utenti…",
           "empty": "Nessun utente corrisponde ai filtri.",
           "noUsers": "0 utenti",
           "showing": "{from}-{to} di {total}",
@@ -1445,8 +1460,7 @@
           "updatePassword": "Aggiorna password",
           "removeTitle": "Rimuovere l’utente?",
           "removeDescription": "Elimina definitivamente <strong>{name}</strong> ({email}) e tutto ciò che è collegato all’account. Le voci del registro di audit vengono conservate senza nome né email. L’operazione non può essere annullata.",
-          "removeConfirm": "Rimuovi",
-          "removing": "Rimozione…"
+          "removeConfirm": "Rimuovi"
         },
         "detailActions": {
           "impersonateError": "Impossibile accedere come questo utente.",
@@ -1537,10 +1551,6 @@
         "title": "Consensi",
         "description": "Autorizzazioni che le persone hanno concesso ai client OAuth, con gli scope e la data in cui sono state concesse.",
         "panel": {
-          "signedInUser": "Utente connesso",
-          "loadConsentsFailed": "Caricamento dei consensi non riuscito",
-          "loadClientsFailed": "Caricamento dei client OAuth non riuscito",
-          "loadErrorTitle": "Impossibile caricare i consensi",
           "searchPlaceholder": "Cerca per utente, client, ID consenso, riferimento o scope…",
           "searchLabel": "Cerca consensi",
           "filter": {
@@ -1556,16 +1566,14 @@
             "granted": "Concesso",
             "updated": "Aggiornato"
           },
-          "loading": "Caricamento consensi…",
-          "emptyNone": "Ancora nessun consenso registrato per questo account.",
+          "emptyNone": "Nessuno ha ancora dato il consenso a un'applicazione.",
           "emptyFiltered": "Nessun consenso corrisponde ai filtri.",
           "noResults": "0 consensi",
           "showing": "{from}-{to} di {total}",
           "rowsPerPage": "Righe per pagina",
           "previous": "Precedente",
           "next": "Successiva",
-          "pageOf": "Pagina {page} / {total}",
-          "footnote": "Dati da <code>{getConsents}</code>; nomi dei client risolti tramite <code>{getClients}</code>. La revoca usa <code>{deleteConsent}</code>. Vedi <consentLink>OAuth consent</consentLink> nella documentazione dell’<providerLink>OAuth provider</providerLink>. L’interfaccia di autorizzazione interattiva si trova su <code>{path}</code>."
+          "pageOf": "Pagina {page} / {total}"
         },
         "rowActions": {
           "menuLabel": "Azioni per il consenso {id}…",
@@ -1573,16 +1581,13 @@
           "consentIdCopied": "ID consenso copiato",
           "copyClientId": "Copia client ID",
           "clientIdCopied": "Client ID copiato",
-          "viewDetails": "Vedi dettagli",
-          "updateScopes": "Aggiorna scope",
-          "wireTo": "Collega a {method}",
           "revoke": "Revoca consenso",
           "revokeFailed": "Impossibile revocare il consenso",
           "revoked": "Consenso revocato",
           "dialogTitle": "Revocare il consenso?",
-          "dialogDescription": "Rimuove l’autorizzazione di questo utente per <strong>{client}</strong> (<code>{clientId}</code>). Il client potrebbe dover richiedere di nuovo l’autorizzazione.",
-          "revoking": "Revoca…",
-          "revokeButton": "Revoca"
+          "dialogDescription": "Rimuove il consenso di <strong>{user}</strong> a <strong>{client}</strong> (<code>{clientId}</code>) e revoca i token che l'app detiene per questa persona. L'app dovrà chiederlo di nuovo per ottenerne altri.",
+          "revokeButton": "Revoca",
+          "notFound": "Questo consenso non esiste più."
         }
       },
       "usage": {
@@ -1611,7 +1616,7 @@
       "audit": {
         "title": "Registro di audit",
         "description": "Ogni modifica effettuata da questa console o dall’API di amministrazione: chi l’ha fatta, su cosa e quando.",
-        "footnote": "Vengono mostrate le ultime 200 voci. Password e segreti non vengono mai registrati.",
+        "footnote": "Password e segreti non vengono mai registrati.",
         "filterLabel": "Filtra per area",
         "filters": {
           "all": "Tutto",
@@ -1661,7 +1666,8 @@
             "disable": "Client OAuth disattivato",
             "enable": "Client OAuth attivato",
             "branding_update": "Personalizzazione dell’accesso modificata",
-            "branding_reset": "Personalizzazione dell’accesso reimpostata"
+            "branding_reset": "Personalizzazione dell’accesso reimpostata",
+            "remove_duplicates": "Client OAuth duplicati rimossi"
           },
           "client_registration": {
             "update": "Autoregistrazione dei client modificata"
@@ -1730,7 +1736,12 @@
             "test": "Evento di prova del webhook inviato",
             "redeliver": "Evento del webhook consegnato di nuovo"
           }
-        }
+        },
+        "actorPlaceholder": "Cerca per autore (email)…",
+        "actorLabel": "Cerca per autore",
+        "pagesLabel": "Pagine del registro di audit",
+        "newest": "Voci più recenti",
+        "older": "Voci precedenti"
       },
       "security": {
         "title": "Sicurezza",
@@ -1827,8 +1838,14 @@
         }
       },
       "organizations": {
+        "title": "Organizzazioni",
+        "description": "Tutte le organizzazioni della piattaforma, con i loro membri. Aprine una per gestire membri, SSO e SCIM.",
+        "list": {
+          "searchPlaceholder": "Cerca per nome o slug…",
+          "searchLabel": "Cerca organizzazioni",
+          "noMatch": "Nessuna organizzazione corrisponde alla ricerca."
+        },
         "controls": {
-          "unexpectedError": "Si è verificato un errore.",
           "organizationUpdated": "Organizzazione aggiornata",
           "slug": "Slug",
           "role": "Ruolo",
@@ -1880,7 +1897,7 @@
           "defaultWorkspace": "Workspace predefinito",
           "createdAt": "Creata il {date}",
           "members": "Membri",
-          "publicMembers": "Ogni account appartiene al workspace Public, quindi qui non si possono rimuovere membri. Vengono mostrati i primi 50.",
+          "publicMembers": "Ogni account appartiene al workspace Public, quindi qui non si possono rimuovere membri.",
           "memberCount": "{count, plural, one {# membro} other {# membri}}.",
           "noMembers": "Ancora nessun membro.",
           "member": "Membro",
@@ -1918,7 +1935,10 @@
           "invitationNotFound": "Invito non trovato.",
           "requestFailed": "Richiesta non riuscita.",
           "scimUnavailable": "Questa organizzazione non può usare il provisioning SCIM.",
-          "noActiveToken": "Non c’è nessun token attivo."
+          "noActiveToken": "Non c’è nessun token attivo.",
+          "lastOwner": "Un’organizzazione deve avere almeno un proprietario. Rendi prima proprietario un altro membro.",
+          "publicDelete": "Lo spazio di lavoro Public non può essere eliminato.",
+          "organizationNotFound": "Organizzazione non trovata."
         }
       }
     },
@@ -1954,7 +1974,15 @@
       "refresh": "Aggiorna",
       "search": "Cerca",
       "optional": "Facoltativo",
-      "unexpectedError": "Si è verificato un errore. Riprova."
+      "unexpectedError": "Si è verificato un errore. Riprova.",
+      "invalidInput": "Alcuni dei valori inviati non sono validi. Ricarica la pagina e riprova.",
+      "pagination": {
+        "rowsPerPage": "Righe per pagina",
+        "previous": "Precedente",
+        "next": "Successiva",
+        "pageOf": "Pagina {page} / {pages}",
+        "showing": "{from}-{to} di {total}"
+      }
     },
     "urlCheck": {
       "tooLong": "L’URL è troppo lungo.",
@@ -2564,7 +2592,8 @@
       "txtRecordNotFound": "Il record TXT non è ancora stato trovato. Le modifiche DNS possono richiedere alcuni minuti per comparire.",
       "envNotSet": "{name} non è impostato.",
       "invalidProviderId": "L’ID provider deve contenere da 2 a 63 lettere minuscole, cifre, - o _.",
-      "unreadableSamlConfig": "La configurazione SAML archiviata non è leggibile; elimina il provider e registralo di nuovo."
+      "unreadableSamlConfig": "La configurazione SAML archiviata non è leggibile; elimina il provider e registralo di nuovo.",
+      "domainTaken": "Un altro provider SSO usa già questo dominio."
     }
   },
   "selectAccount": {
@@ -2646,5 +2675,23 @@
       "note": "Il link scade tra {minutes} minuti e funziona una sola volta.",
       "footnote": "Se non l’hai richiesto tu, ignora questa email: il tuo account resta com’è. Valuta di cambiare la password, perché la richiesta proviene da una sessione con accesso effettuato."
     }
+  },
+  "authErrors": {
+    "banned": "Questo account è stato sospeso. Contatta l'assistenza se pensi che sia un errore.",
+    "deactivated": "La tua organizzazione ha disattivato questo account.",
+    "invalidCredentials": "Email, nome utente o password non corretti.",
+    "userExists": "Esiste già un account con questo indirizzo email.",
+    "usernameTaken": "Questo nome utente è già in uso.",
+    "usernameInvalid": "Questo nome utente non può essere usato. Provane un altro.",
+    "passwordTooShort": "Questa password è troppo corta.",
+    "passwordTooLong": "Questa password è troppo lunga.",
+    "passwordCompromised": "Questa password è comparsa in una violazione di dati. Scegline un'altra.",
+    "invalidPassword": "Password non corretta.",
+    "recentSignIn": "Accedi di nuovo per farlo.",
+    "sessionExpired": "La sessione è scaduta. Accedi di nuovo.",
+    "impersonating": "Non è possibile mentre un amministratore sta visualizzando l'account.",
+    "emailNotVerified": "Verifica prima il tuo indirizzo email.",
+    "invalidToken": "Questo link non è valido o è scaduto.",
+    "publicOrganization": "I membri dell'organizzazione Public sono gestiti solo dagli amministratori della piattaforma."
   }
 }

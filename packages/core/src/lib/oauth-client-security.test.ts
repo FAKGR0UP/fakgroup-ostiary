@@ -4,7 +4,7 @@ import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 /*
  * OAuth client management against the real Better Auth configuration (createAuth) and a real
@@ -345,6 +345,117 @@ describe("API scopes are only issued for their own API (L5)", () => {
     expect(((await unowned.json()) as { scope: string }).scope.split(" ").sort()).toEqual(["a:read", "orders:write"]);
     const restricted = await token(client, "r:read b:read", R);
     expect(((await restricted.json()) as { scope: string }).scope).toBe("r:read");
+  });
+});
+
+describe("MCP self-registration advertises and limits to public PKCE clients (H2)", () => {
+  // "Anyone" (open) self-registration, as MCP clients expect out of the box.
+  beforeAll(async () => {
+    await saveClientRegistrationSettings({ ...DEFAULT_CLIENT_REGISTRATION_SETTINGS, dynamic: "open" }, null);
+  });
+  afterAll(async () => {
+    await saveClientRegistrationSettings(DEFAULT_CLIENT_REGISTRATION_SETTINGS, null);
+  });
+
+  const publicClient = {
+    client_name: "My Agent",
+    redirect_uris: ["http://127.0.0.1:33418/callback"],
+    application_type: "native",
+    grant_types: ["authorization_code", "refresh_token"],
+    scope: "openid profile email offline_access",
+  };
+
+  it("discovery advertises the registration endpoint, S256 PKCE, the grants and public clients", async () => {
+    // No warming request first: the metadata is served from the plugin options by an onRequest
+    // interceptor, and clientRegistrationDiscoverySync (auth-factory.ts) syncs those options from
+    // the stored setting on the discovery path itself, so discovery reflects the admin console.
+    const response = await request("/.well-known/oauth-authorization-server");
+    expect(response.status, await response.clone().text()).toBe(200);
+    const metadata = (await response.json()) as {
+      registration_endpoint?: string;
+      code_challenge_methods_supported?: string[];
+      grant_types_supported?: string[];
+      token_endpoint_auth_methods_supported?: string[];
+    };
+    expect(metadata.registration_endpoint).toBe(`${ISSUER}/oauth2/register`);
+    expect(metadata.code_challenge_methods_supported).toContain("S256");
+    expect(metadata.grant_types_supported).toEqual(expect.arrayContaining(["authorization_code", "client_credentials"]));
+    // Public clients (token_endpoint_auth_method "none") are advertised while anonymous
+    // registration is on, which is what an MCP client looks for.
+    expect(metadata.token_endpoint_auth_methods_supported).toContain("none");
+  });
+
+  it("lets an anonymous client self-register as a public PKCE client", async () => {
+    const response = await request("/oauth2/register", { json: { ...publicClient, token_endpoint_auth_method: "none" } });
+    expect(response.status, await response.clone().text()).toBe(201);
+    const body = (await response.json()) as { client_id: string; token_endpoint_auth_method?: string; client_secret?: string };
+    expect(body.client_id).toEqual(expect.any(String));
+    expect(body.client_secret).toBeUndefined();
+    expect(await clientRegistrationSource(body.client_id)).toBe("dynamic");
+  });
+
+  it("coerces an anonymous confidential (or method-omitted) registration to a public PKCE client", async () => {
+    for (const body of [
+      { ...publicClient, token_endpoint_auth_method: "client_secret_basic" },
+      { ...publicClient, token_endpoint_auth_method: "client_secret_post" },
+      // Omitting it would default to a confidential client in Better Auth: coerced to public instead
+      // of refused, so an MCP client that omits the method still registers (never with a secret).
+      publicClient,
+    ]) {
+      const response = await request("/oauth2/register", { json: body });
+      expect(response.status, JSON.stringify(body)).toBe(201);
+      const created = (await response.json()) as { token_endpoint_auth_method?: string; client_secret?: string };
+      expect(created.token_endpoint_auth_method, JSON.stringify(body)).toBe("none");
+      expect(created.client_secret).toBeUndefined();
+    }
+  });
+
+  it("still lets a signed-in user register a confidential client", async () => {
+    const user = await signedIn("user");
+    const response = await request("/oauth2/register", {
+      headers: user.headers,
+      json: { ...publicClient, application_type: "web", redirect_uris: ["https://app.example.test/cb"], token_endpoint_auth_method: "client_secret_basic" },
+    });
+    expect(response.status, await response.clone().text()).toBe(201);
+    const body = (await response.json()) as { client_id: string; client_secret?: string };
+    expect(body.client_secret).toEqual(expect.any(String));
+    expect(await clientRegistrationSource(body.client_id)).toBe("dynamic");
+  });
+});
+
+describe("discovery reflects the stored setting on a cold serverless instance (H2)", () => {
+  // The discovery documents are served from the plugin options by an onRequest interceptor that
+  // runs before the per-request sync hook. On a cold instance no request has synced those options,
+  // so without clientRegistrationDiscoverySync (auth-factory.ts) discovery would show the
+  // construction-time default (registration off). Each case builds a fresh auth whose very first
+  // handled request is discovery — the cold-start path — after storing the admin setting.
+  async function coldDiscoveryMetadata() {
+    const cold = createAuth({ baseURL: BASE, trustedOrigins: [BASE] });
+    await cold.$context;
+    const response = await cold.handler(new Request(`${ISSUER}/.well-known/oauth-authorization-server`));
+    expect(response.status, await response.clone().text()).toBe(200);
+    return (await response.json()) as {
+      registration_endpoint?: string;
+      token_endpoint_auth_methods_supported?: string[];
+    };
+  }
+
+  afterEach(async () => {
+    await saveClientRegistrationSettings(DEFAULT_CLIENT_REGISTRATION_SETTINGS, null);
+  });
+
+  it("advertises registration and public clients when the stored setting is open", async () => {
+    await saveClientRegistrationSettings({ ...DEFAULT_CLIENT_REGISTRATION_SETTINGS, dynamic: "open" }, null);
+    const metadata = await coldDiscoveryMetadata();
+    expect(metadata.registration_endpoint).toBe(`${ISSUER}/oauth2/register`);
+    expect(metadata.token_endpoint_auth_methods_supported).toContain("none");
+  });
+
+  it("does not advertise registration when the stored setting is off", async () => {
+    await saveClientRegistrationSettings(DEFAULT_CLIENT_REGISTRATION_SETTINGS, null);
+    const metadata = await coldDiscoveryMetadata();
+    expect(metadata.registration_endpoint).toBeUndefined();
+    expect(metadata.token_endpoint_auth_methods_supported ?? []).not.toContain("none");
   });
 });
 

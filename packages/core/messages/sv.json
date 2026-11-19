@@ -286,10 +286,6 @@
           "empty": "Inga användare än."
         },
         "stats": {
-          "error": "Det gick inte att läsa in ett eller flera mätvärden. Kontrollera att du är inloggad som administratör.",
-          "errorTitle": "Mätvärden är inte tillgängliga",
-          "loadingTitle": "Läser in",
-          "loadingHint": "Läser in…",
           "totalUsers": {
             "title": "Användare totalt",
             "hint": "Alla konton på plattformen."
@@ -369,7 +365,11 @@
           "previous": "Föregående",
           "next": "Nästa",
           "page": "Sida {page} / {total}",
-          "footnote": "Data från <code>{getClients}</code>. Registrering och redigering (inklusive <code>{skipConsent}</code>) anropar <code>{create}</code> och <code>{update}</code>; övriga ändringar använder <code>{deleteClient}</code> och <code>{rotateSecret}</code>. Se dokumentationen för <docs>OAuth provider</docs>. Klienter är knutna till den inloggade användaren (eller <code>{clientReference}</code> om det är konfigurerat). Självregistrerade klienter har ingen ägare och visas alla; de kan inaktiveras eller raderas men inte redigeras."
+          "footnote": "Data från <code>{getClients}</code>. Registrering och redigering (inklusive <code>{skipConsent}</code>) anropar <code>{create}</code> och <code>{update}</code>; övriga ändringar använder <code>{deleteClient}</code> och <code>{rotateSecret}</code>. Se dokumentationen för <docs>OAuth provider</docs>. Klienter är knutna till den inloggade användaren (eller <code>{clientReference}</code> om det är konfigurerat). Självregistrerade klienter har ingen ägare och visas alla; de kan inaktiveras eller raderas men inte redigeras.",
+          "duplicates": "×{count}",
+          "duplicatesHint": "{count} identiska självregistrerade klienter",
+          "showDuplicates": "Visa alla {count}",
+          "hideDuplicates": "Dölj identiska"
         },
         "registration": {
           "title": "Självregistrering",
@@ -405,7 +405,12 @@
           "hostsHint": "En per rad. Tomt: valfri publik HTTPS-värd.",
           "scopesLabel": "Scopes som självregistrerade klienter får begära",
           "scopesHint": "Varje användare godkänner fortfarande de scopes en app ber om. Tar du bort ett scope tas det även bort från redan registrerade klienter; token som redan utfärdats behåller det tills de går ut.",
-          "perHourHint": "Över alla instanser, för båda metoderna. Varje adress är dessutom begränsad till 5 registreringar per minut."
+          "perHourHint": "Över alla instanser, för båda metoderna. Varje adress är dessutom begränsad till 5 registreringar per minut.",
+          "reuse": "Identiska publika klienter",
+          "reuseOn": "Återanvänds",
+          "reuseOff": "Ny klient varje gång",
+          "reuseLabel": "Återanvänd identiska publika klienter",
+          "reuseHint": "En app utan hemlighet som registrerar sig igen med samma namn, omdirigerings-URI:er, grants och scopes får tillbaka sin befintliga klient i stället för en ny. MCP-klienter som Claude registrerar sig vid varje anslutning."
         },
         "branding": {
           "title": "Inloggningsutseende",
@@ -483,7 +488,9 @@
             "clientGone": "Den här klienten finns inte längre.",
             "notSelfRegistered": "Endast självregistrerade klienter kan ändras här.",
             "invalidIconUrl": "Ikon-URL:en måste vara en https-adress på en offentlig värd (localhost och privata adresser kan inte hämtas).",
-            "iconFromMetadataDocument": "Den här klientens ikon kommer från dess metadatadokument."
+            "iconFromMetadataDocument": "Den här klientens ikon kommer från dess metadatadokument.",
+            "invalidUnusedDays": "Antalet dagar måste vara ett heltal från 1 till {max}.",
+            "cleanupFailed": "Det gick inte att ta bort de duplicerade klienterna."
           },
           "branding": {
             "clientGone": "Den här applikationen finns inte längre.",
@@ -604,6 +611,17 @@
           "panelImageEmpty": "Bilden för sidopanelen är tom.",
           "panelImageTooLarge": "Bilden för sidopanelen får vara högst 1 MB.",
           "panelImageType": "Bilden för sidopanelen måste vara en PNG-, JPEG-, WebP- eller AVIF-bild."
+        },
+        "cleanup": {
+          "trigger": "Ta bort oanvända dubbletter",
+          "title": "Ta bort oanvända dubbletter?",
+          "description": "I varje grupp av identiska självregistrerade appar behålls den som användes senast. De andra raderas tillsammans med sina samtycken, utom de som fortfarande har en giltig åtkomst- eller uppdateringstoken: de finns kvar, så att ingen loggas ut.",
+          "pruneLabel": "Radera även självregistrerade appar som aldrig använts",
+          "pruneHint": "Ingen token och inget samtycke, registrerade för mer än så här många dagar sedan.",
+          "daysLabel": "Dagar",
+          "confirm": "Ta bort",
+          "done": "{removed, plural, one {# klient borttagen} other {# klienter borttagna}}.",
+          "doneInUse": "{removed, plural, one {# klient borttagen} other {# klienter borttagna}}. {inUse, plural, one {# dubblett behölls: den är fortfarande inloggad.} other {# dubbletter behölls: de är fortfarande inloggade.}}"
         }
       },
       "apis": {
@@ -1371,8 +1389,6 @@
           "roleAll": "Alla roller",
           "roleAdmin": "Administratör",
           "roleUser": "Användare",
-          "loadErrorTitle": "Det gick inte att läsa in användare",
-          "loadErrorFallback": "Det gick inte att läsa in användare",
           "columns": {
             "user": "Användare",
             "role": "Roll",
@@ -1380,7 +1396,6 @@
             "verified": "Verifierad",
             "joined": "Gick med"
           },
-          "loading": "Läser in användare…",
           "empty": "Inga användare matchar dina filter.",
           "noUsers": "0 användare",
           "showing": "Visar {from}–{to} av {total}",
@@ -1445,8 +1460,7 @@
           "updatePassword": "Uppdatera lösenord",
           "removeTitle": "Ta bort användaren?",
           "removeDescription": "Det här raderar <strong>{name}</strong> ({email}) och allt som är kopplat till kontot permanent. Poster i granskningsloggen behålls utan namn eller e-postadress. Det går inte att ångra.",
-          "removeConfirm": "Ta bort",
-          "removing": "Tar bort…"
+          "removeConfirm": "Ta bort"
         },
         "detailActions": {
           "impersonateError": "Det gick inte att agera som den här användaren.",
@@ -1537,10 +1551,6 @@
         "title": "Samtycken",
         "description": "Behörigheter som personer har gett OAuth-klienter, med scopes och när de gavs.",
         "panel": {
-          "signedInUser": "Inloggad användare",
-          "loadConsentsFailed": "Det gick inte att läsa in samtycken",
-          "loadClientsFailed": "Det gick inte att läsa in OAuth-klienter",
-          "loadErrorTitle": "Det gick inte att läsa in samtycken",
           "searchPlaceholder": "Sök på användare, klient, samtyckes-id, referens eller scope…",
           "searchLabel": "Sök samtycken",
           "filter": {
@@ -1556,16 +1566,14 @@
             "granted": "Beviljat",
             "updated": "Uppdaterat"
           },
-          "loading": "Läser in samtycken…",
-          "emptyNone": "Inga samtycken har registrerats för det här kontot än.",
+          "emptyNone": "Ingen har gett samtycke till en applikation än.",
           "emptyFiltered": "Inga samtycken matchar dina filter.",
           "noResults": "0 samtycken",
           "showing": "Visar {from}–{to} av {total}",
           "rowsPerPage": "Rader per sida",
           "previous": "Föregående",
           "next": "Nästa",
-          "pageOf": "Sida {page} / {total}",
-          "footnote": "Data från <code>{getConsents}</code>; klientnamn hämtas via <code>{getClients}</code>. Återkallning använder <code>{deleteConsent}</code>. Se <consentLink>OAuth consent</consentLink> i dokumentationen för <providerLink>OAuth provider</providerLink>. Det interaktiva auktoriseringsgränssnittet finns på <code>{path}</code>."
+          "pageOf": "Sida {page} / {total}"
         },
         "rowActions": {
           "menuLabel": "Åtgärder för samtycke {id}…",
@@ -1573,16 +1581,13 @@
           "consentIdCopied": "Samtyckes-id har kopierats",
           "copyClientId": "Kopiera klient-id",
           "clientIdCopied": "Klient-id har kopierats",
-          "viewDetails": "Visa detaljer",
-          "updateScopes": "Uppdatera scopes",
-          "wireTo": "Koppla till {method}",
           "revoke": "Återkalla samtycke",
           "revokeFailed": "Det gick inte att återkalla samtycket",
           "revoked": "Samtycket har återkallats",
           "dialogTitle": "Återkalla samtycket?",
-          "dialogDescription": "Tar bort användarens beviljande för <strong>{client}</strong> (<code>{clientId}</code>). Klienten kan behöva begära auktorisering igen.",
-          "revoking": "Återkallar…",
-          "revokeButton": "Återkalla"
+          "dialogDescription": "Tar bort <strong>{user}</strong>s samtycke till <strong>{client}</strong> (<code>{clientId}</code>) och återkallar de token som appen har för personen. Appen måste fråga igen för att få nya.",
+          "revokeButton": "Återkalla",
+          "notFound": "Det här samtycket finns inte längre."
         }
       },
       "usage": {
@@ -1611,7 +1616,7 @@
       "audit": {
         "title": "Granskningslogg",
         "description": "Varje ändring som gjorts från den här konsolen eller administrations-API:et: vem som gjorde den, på vad och när.",
-        "footnote": "Visar de senaste 200 posterna. Lösenord och hemligheter registreras aldrig.",
+        "footnote": "Lösenord och hemligheter registreras aldrig.",
         "filterLabel": "Filtrera på område",
         "filters": {
           "all": "Alla",
@@ -1661,7 +1666,8 @@
             "disable": "Inaktiverade OAuth-klient",
             "enable": "Aktiverade OAuth-klient",
             "branding_update": "Ändrade inloggningsutseende",
-            "branding_reset": "Återställde inloggningsutseende"
+            "branding_reset": "Återställde inloggningsutseende",
+            "remove_duplicates": "Tog bort duplicerade OAuth-klienter"
           },
           "client_registration": {
             "update": "Ändrade självregistrering av klienter"
@@ -1730,7 +1736,12 @@
             "test": "Skickade testhändelse för webhook",
             "redeliver": "Levererade webhook-händelse igen"
           }
-        }
+        },
+        "actorPlaceholder": "Sök på vem som agerade (e-post)…",
+        "actorLabel": "Sök på utförare",
+        "pagesLabel": "Sidor i granskningsloggen",
+        "newest": "Senaste posterna",
+        "older": "Äldre poster"
       },
       "security": {
         "title": "Säkerhet",
@@ -1827,8 +1838,14 @@
         }
       },
       "organizations": {
+        "title": "Organisationer",
+        "description": "Alla organisationer på plattformen med sina medlemmar. Öppna en för att hantera medlemmar, SSO och SCIM.",
+        "list": {
+          "searchPlaceholder": "Sök på namn eller slug…",
+          "searchLabel": "Sök organisationer",
+          "noMatch": "Ingen organisation matchar din sökning."
+        },
         "controls": {
-          "unexpectedError": "Något gick fel.",
           "organizationUpdated": "Organisationen har uppdaterats",
           "slug": "Slug",
           "role": "Roll",
@@ -1880,7 +1897,7 @@
           "defaultWorkspace": "Standardarbetsyta",
           "createdAt": "Skapad {date}",
           "members": "Medlemmar",
-          "publicMembers": "Alla konton tillhör den publika arbetsytan, så medlemmar kan inte tas bort här. Visar de första 50.",
+          "publicMembers": "Alla konton tillhör den publika arbetsytan, så medlemmar kan inte tas bort här.",
           "memberCount": "{count, plural, one {# medlem} other {# medlemmar}}.",
           "noMembers": "Inga medlemmar än.",
           "member": "Medlem",
@@ -1918,7 +1935,10 @@
           "invitationNotFound": "Inbjudan hittades inte.",
           "requestFailed": "Begäran misslyckades.",
           "scimUnavailable": "Den här organisationen kan inte använda SCIM-etablering.",
-          "noActiveToken": "Det finns ingen aktiv token."
+          "noActiveToken": "Det finns ingen aktiv token.",
+          "lastOwner": "En organisation behöver minst en ägare. Gör först en annan medlem till ägare.",
+          "publicDelete": "Arbetsytan Public kan inte tas bort.",
+          "organizationNotFound": "Organisationen hittades inte."
         }
       }
     },
@@ -1954,7 +1974,15 @@
       "refresh": "Uppdatera",
       "search": "Sök",
       "optional": "Valfritt",
-      "unexpectedError": "Något gick fel. Försök igen."
+      "unexpectedError": "Något gick fel. Försök igen.",
+      "invalidInput": "Några av de skickade värdena är ogiltiga. Ladda om sidan och försök igen.",
+      "pagination": {
+        "rowsPerPage": "Rader per sida",
+        "previous": "Föregående",
+        "next": "Nästa",
+        "pageOf": "Sida {page} / {pages}",
+        "showing": "Visar {from}–{to} av {total}"
+      }
     },
     "urlCheck": {
       "tooLong": "URL:en är för lång.",
@@ -2564,7 +2592,8 @@
       "txtRecordNotFound": "TXT-posten har inte hittats än. DNS-ändringar kan ta några minuter att synas.",
       "envNotSet": "{name} är inte angiven.",
       "invalidProviderId": "Leverantörs-id:t måste bestå av 2 till 63 gemener, siffror, - eller _.",
-      "unreadableSamlConfig": "Den lagrade SAML-konfigurationen är oläslig; radera leverantören och registrera den igen."
+      "unreadableSamlConfig": "Den lagrade SAML-konfigurationen är oläslig; radera leverantören och registrera den igen.",
+      "domainTaken": "En annan SSO-leverantör använder redan den här domänen."
     }
   },
   "selectAccount": {
@@ -2646,5 +2675,23 @@
       "note": "Länken går ut om {minutes} minuter och fungerar bara en gång.",
       "footnote": "Har du inte bett om det här? Ignorera det här mejlet: ditt konto förblir som det är. Överväg att byta lösenord, eftersom begäran kom från en inloggad session."
     }
+  },
+  "authErrors": {
+    "banned": "Det här kontot har stängts av. Kontakta supporten om du tror att det är ett misstag.",
+    "deactivated": "Din organisation har inaktiverat det här kontot.",
+    "invalidCredentials": "Fel e-postadress, användarnamn eller lösenord.",
+    "userExists": "Det finns redan ett konto med den här e-postadressen.",
+    "usernameTaken": "Användarnamnet är redan upptaget.",
+    "usernameInvalid": "Användarnamnet kan inte användas. Prova ett annat.",
+    "passwordTooShort": "Lösenordet är för kort.",
+    "passwordTooLong": "Lösenordet är för långt.",
+    "passwordCompromised": "Lösenordet har förekommit i ett dataläckage. Välj ett annat.",
+    "invalidPassword": "Fel lösenord.",
+    "recentSignIn": "Logga in igen för att göra detta.",
+    "sessionExpired": "Din session har gått ut. Logga in igen.",
+    "impersonating": "Det går inte medan en administratör visar kontot.",
+    "emailNotVerified": "Verifiera din e-postadress först.",
+    "invalidToken": "Länken är ogiltig eller har gått ut.",
+    "publicOrganization": "Medlemmarna i organisationen Public hanteras bara av plattformens administratörer."
   }
 }

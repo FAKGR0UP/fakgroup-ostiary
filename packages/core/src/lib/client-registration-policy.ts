@@ -25,6 +25,11 @@ export type ClientRegistrationSettings = {
   metadataDocumentHosts: string[];
   /** New self-registered clients per hour, across every instance. */
   maxRegistrationsPerHour: number;
+  /**
+   * An anonymous registration identical to an existing public client gets that client back
+   * instead of a new one (client-dedupe-policy.ts). On unless turned off.
+   */
+  reuseIdenticalPublicClients: boolean;
 };
 
 export const DEFAULT_CLIENT_REGISTRATION_SETTINGS: ClientRegistrationSettings = {
@@ -33,6 +38,7 @@ export const DEFAULT_CLIENT_REGISTRATION_SETTINGS: ClientRegistrationSettings = 
   scopes: [...OIDC_SCOPES],
   metadataDocumentHosts: [],
   maxRegistrationsPerHour: 30,
+  reuseIdenticalPublicClients: true,
 };
 
 export const MAX_REGISTRATIONS_PER_HOUR_LIMIT = 1000;
@@ -95,6 +101,7 @@ export function parseClientRegistrationSettings(raw: unknown): ClientRegistratio
       typeof max === "number" && Number.isInteger(max) && max >= 0 && max <= MAX_REGISTRATIONS_PER_HOUR_LIMIT
         ? max
         : defaults.maxRegistrationsPerHour,
+    reuseIdenticalPublicClients: value.reuseIdenticalPublicClients !== false,
   };
 }
 
@@ -154,6 +161,22 @@ export function registrationRequestError(body: unknown): string | null {
   return refused === undefined
     ? null
     : `grant_type ${String(refused)} is not available to self-registered clients`;
+}
+
+/**
+ * Unauthenticated client registration is limited to public PKCE clients. Better Auth's
+ * `allowUnauthenticatedClientRegistration` does not enforce this on its own (checked against
+ * 1.7.7): the registration endpoint only blocks the `client_credentials` grant for an anonymous
+ * caller, and a request that omits `token_endpoint_auth_method` defaults to a confidential client
+ * with a generated secret — which it would then hand to whoever made the anonymous request.
+ * Returns the reason to refuse an anonymous confidential registration, or null. With a session,
+ * a confidential client is allowed (the admin console, or a signed-in user).
+ */
+export function unauthenticatedRegistrationError(body: unknown, hasSession: boolean): string | null {
+  if (hasSession) return null;
+  const method = (body as { token_endpoint_auth_method?: unknown } | null)?.token_endpoint_auth_method;
+  if (method === "none") return null;
+  return 'Unauthenticated client registration is limited to public PKCE clients (token_endpoint_auth_method must be "none"). Sign in to register a confidential client.';
 }
 
 /** Whether a metadata document URL is on the allowlist (any host when the list is empty). */
